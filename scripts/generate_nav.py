@@ -74,8 +74,110 @@ def jlab_url(rel: str) -> str:
     return "http://localhost:8888/lab/tree/" + quote(rel, safe="/")
 
 
+def md_inline(text: str) -> str:
+    """行内 md：`code` **bold** [[wiki链接]]"""
+    text = html.escape(text, quote=False)
+    text = re.sub(r"`([^`]+)`", r"<code>\1</code>", text)
+    text = re.sub(r"\*\*([^*]+)\*\*", r"<strong>\1</strong>", text)
+    text = re.sub(
+        r"\[\[([^\]]+)\]\]", r'<span class="wikilink">\1</span>', text
+    )
+    return text
+
+
+def md_to_html(src: str) -> str:
+    """轻量 md→HTML（支持标题/代码块/表格/列表/引用/原始HTML/details），
+    只覆盖 book-wiki 文档用到的格式子集。"""
+    parts, i = [], 0
+    lines = src.split("\n")
+    in_code = in_list = in_table = False
+    buf, head_done = [], False
+
+    def close_block():
+        nonlocal in_code, in_list, in_table, buf, head_done
+        if in_code:
+            parts.append("<pre><code>" + html.escape("\n".join(buf)) + "</code></pre>")
+            buf, in_code = [], False
+        if in_list:
+            parts.append("</ul>")
+            in_list = False
+        if in_table:
+            parts.append("</tbody></table>")
+            in_table, head_done = False, False
+
+    while i < len(lines):
+        line = lines[i]
+        s = line.strip()
+        if s.startswith("```"):
+            if in_code:
+                parts.append("<pre><code>" + html.escape("\n".join(buf)) + "</code></pre>")
+                buf, in_code = [], False
+            else:
+                in_code = True
+            i += 1
+            continue
+        if in_code:
+            buf.append(line)
+            i += 1
+            continue
+        if s == "":
+            close_block()
+            i += 1
+            continue
+        if s.startswith(("<details", "</details", "<summary", "</summary")):
+            close_block()
+            parts.append(s)
+            i += 1
+            continue
+        m = re.match(r"^(#{1,4})\s+(.*)", s)
+        if m:
+            close_block()
+            lv = len(m.group(1)) + 2  # #→h3（卡片内层级）
+            parts.append(f"<h{lv}>{md_inline(m.group(2))}</h{lv}>")
+            i += 1
+            continue
+        if s == "---":
+            close_block()
+            parts.append("<hr>")
+            i += 1
+            continue
+        if s.startswith("|") and s.endswith("|"):
+            cells = [c.strip() for c in s.strip("|").split("|")]
+            if not in_table:
+                parts.append("<table class='md'><thead><tr>")
+                parts.append("".join(f"<th>{md_inline(c)}</th>" for c in cells))
+                parts.append("</tr></thead><tbody>")
+                in_table, head_done = True, False
+            else:
+                if all(re.fullmatch(r":?-{2,}:?", c) for c in cells):
+                    i += 1
+                    continue
+                parts.append("<tr>" + "".join(f"<td>{md_inline(c)}</td>" for c in cells) + "</tr>")
+            i += 1
+            continue
+        if s.startswith(("- ", "* ")):
+            if not in_list:
+                close_block()
+                parts.append("<ul>")
+                in_list = True
+            parts.append(f"<li>{md_inline(s[2:])}</li>")
+            i += 1
+            continue
+        if s.startswith(("> ", ">")):
+            if not in_list and not in_table:
+                pass
+            parts.append(f"<blockquote>{md_inline(s.lstrip('> '))}</blockquote>")
+            i += 1
+            continue
+        close_block()
+        parts.append(f"<p>{md_inline(s)}</p>")
+        i += 1
+    close_block()
+    return "\n".join(parts)
+
+
 def load_learning_materials() -> dict:
-    """扫描 book-wiki 学习材料，返回 {unit: {lecture, concepts}}"""
+    """扫描 book-wiki 学习材料，返回 {unit: {lecture, concepts}}（含渲染好的 HTML）"""
     out = {}
     lect_dir = os.path.join(ROOT, BOOK_WIKI, "lectures")
     if os.path.isdir(lect_dir):
@@ -88,7 +190,8 @@ def load_learning_materials() -> dict:
             unit = m.group(1)
             ltitle = os.path.splitext(f)[0].split("-", 1)[1] if "-" in f else f
             rel = os.path.join(BOOK_WIKI, "lectures", f).replace("\\", "/")
-            out.setdefault(unit, {})["lecture"] = (rel, ltitle)
+            body = md_to_html(open(os.path.join(ROOT, rel), encoding="utf-8").read())
+            out.setdefault(unit, {})["lecture"] = (rel, ltitle, body)
     conc_dir = os.path.join(ROOT, BOOK_WIKI, "concepts")
     if os.path.isdir(conc_dir):
         for f in sorted(os.listdir(conc_dir)):
@@ -102,19 +205,24 @@ def load_learning_materials() -> dict:
             summary = html.unescape(dm.group(1).strip()) if dm else ""
             name = os.path.splitext(f)[0]
             rel = os.path.join(BOOK_WIKI, "concepts", f).replace("\\", "/")
+            body = md_to_html(text)
             out.setdefault(m.group(1), {}).setdefault("concepts", []).append(
-                (name, rel, summary)
+                (name, rel, summary, body)
             )
     return out
 
 
 def build_card(unit: str, title: str, files, learning=None) -> str:
-    links, previews, jbtns = [], [], []
+    links, previews, jbtns, lecture_html, concepts_html = [], [], [], "", ""
     if learning and "lecture" in learning:
-        rel, ltitle = learning["lecture"]
+        rel, ltitle, body = learning["lecture"]
         links.append(
             f'<a href="{html.escape(rel)}" target="_blank" class="file lect" '
             f'title="{html.escape(rel)}">📖 讲义<span class="fn">{html.escape(ltitle)}</span></a>'
+        )
+        lecture_html = (
+            f'<details class="lecture"><summary>📖 讲义阅读（{html.escape(ltitle)}）</summary>'
+            f'<div class="md">{body}</div></details>'
         )
     for f, role in files:
         rel = os.path.join(MAT, unit, f).replace("\\", "/")
@@ -138,12 +246,21 @@ def build_card(unit: str, title: str, files, learning=None) -> str:
         chips = "".join(
             f'<a href="{html.escape(rel)}" target="_blank" class="concept" '
             f'title="{html.escape(summary)}">{html.escape(name)}</a>'
-            for name, rel, summary in learning["concepts"]
+            for name, rel, summary, _ in learning["concepts"]
         )
-        krow = f'<div class="krow"><span class="klabel">知识点</span>{chips}</div>'
+        cards = "".join(
+            f'<section class="ccard"><h4>{html.escape(name)}</h4><div class="md">{body}</div></section>'
+            for name, rel, _, body in learning["concepts"]
+        )
+        n = len(learning["concepts"])
+        krow = (
+            f'<div class="krow"><span class="klabel">知识点</span>{chips}</div>'
+            f'<details class="lecture"><summary>知识点卡片（{n} 个，点击展开）</summary>{cards}</details>'
+        )
     return f"""<section class="card">
       <div class="card-head"><span class="no">{unit}</span><h3>{html.escape(title)}</h3></div>
       <div class="links">{"".join(links)}</div>
+      {lecture_html}
       {krow}
       {jrow}
       {"".join(previews)}
@@ -235,6 +352,26 @@ h3 {{ font-size:14px; font-weight:600; }}
 .klabel {{ color:var(--muted); font-size:12px; }}
 .concept {{ text-decoration:none; color:var(--fg); border:1px dashed var(--line); border-radius:999px; padding:1px 10px; font-size:12px; }}
 .concept:hover {{ border-color:var(--accent); color:var(--accent); }}
+.lecture {{ margin-top:10px; }}
+.lecture summary {{ cursor:pointer; color:#9333ea; font-size:12px; user-select:none; padding:4px 8px; background:var(--chip); border-radius:6px; }}
+.md {{ border:1px solid var(--line); border-radius:6px; padding:10px 14px; margin-top:6px; max-height:520px; overflow-y:auto; font-size:13px; }}
+.md h3 {{ font-size:15px; margin:10px 0 6px; }}
+.md h4 {{ font-size:14px; margin:10px 0 6px; }}
+.md h5 {{ font-size:13px; margin:8px 0 4px; }}
+.md p {{ margin:6px 0; }}
+.md ul {{ margin:6px 0 6px 20px; }}
+.md li {{ margin:2px 0; }}
+.md pre {{ background:var(--chip); border:1px solid var(--line); border-radius:6px; padding:8px 10px; overflow-x:auto; margin:8px 0; }}
+.md code {{ font-family:Consolas,monospace; font-size:12px; }}
+.md table.md {{ border-collapse:collapse; margin:8px 0; font-size:12px; }}
+.md table.md th, .md table.md td {{ border:1px solid var(--line); padding:4px 10px; text-align:left; }}
+.md table.md th {{ background:var(--chip); }}
+.md blockquote {{ border-left:3px solid var(--accent); margin:8px 0; padding:2px 10px; color:var(--muted); }}
+.md hr {{ border:none; border-top:1px solid var(--line); margin:10px 0; }}
+.md summary {{ cursor:pointer; color:var(--accent); }}
+.wikilink {{ color:var(--accent); font-size:12px; }}
+.ccard {{ border-bottom:1px dashed var(--line); padding:4px 0 8px; }}
+.ccard h4 {{ margin:6px 0 2px; }}
 .preview {{ margin-top:10px; }}
 .preview summary {{ cursor:pointer; color:var(--muted); font-size:12px; user-select:none; }}
 .tblwrap {{ overflow-x:auto; max-height:260px; overflow-y:auto; border:1px solid var(--line); border-radius:6px; margin-top:6px; }}
