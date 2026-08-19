@@ -17,6 +17,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
   - **2.x**：docx 任务书 + ipynb + 数据集（含 Label Studio 标注、随机森林等模型训练）
   - **3.1.x**：docx + xlsx 领域数据集；**3.2.x**：ONNX 模型部署推理练习（resnet/mnist/emotion-ferplus/flower-detection/version-RFB-320）
   - **4.x**：仅 docx 答题卷
+- `scripts/generate_nav.py` — 导航页生成器：素材变动后运行 `python scripts/generate_nav.py` 重新生成（数据预览用 pandas，xlsx 需 openpyxl）
 - `.venv/` — uv 虚拟环境（CPython 3.11，gitignore），依赖见 `requirements.txt`
 - `README.md` — 新设备快速开始说明
 
