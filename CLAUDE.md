@@ -10,12 +10,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 目录结构
 
-- `人工智能训练师三级上网素材/` — 官方训练素材，按「章.节.任务」编号（如 1.1.1、3.2.1）：
+- `练习导航.html` — **总入口**：40 个单元卡片，每卡链接到该单元的任务要求/答题卷/练习/数据，含「在 Jupyter 打开」按钮（需 Jupyter 运行中）
+- `人工智能训练师三级上网素材/` — 官方训练素材，按「章.节.任务」编号**一个单元一个文件夹**（如 `2.1.3/`），每单元内含：
+  - `X.html` 任务要求（原考试平台模拟界面，已并入对应单元）· `X.docx` 答题卷 · `X.ipynb` 练习 · 数据集 · ONNX 模型（3.2.x）
   - **1.x**：pandas/numpy 数据分析填空练习（ipynb + CSV 数据集）；1.2.x 仅 docx 答题卷
   - **2.x**：docx 任务书 + ipynb + 数据集（含 Label Studio 标注、随机森林等模型训练）
   - **3.1.x**：docx + xlsx 领域数据集；**3.2.x**：ONNX 模型部署推理练习（resnet/mnist/emotion-ferplus/flower-detection/version-RFB-320）
   - **4.x**：仅 docx 答题卷
-- `人工智能训练师三级考试平台模拟界面/` — 考试平台模拟界面存档（HTML，与素材编号一一对应）。**先看同编号 HTML 了解官方任务要求，再回素材目录做题**
 - `.venv/` — uv 虚拟环境（CPython 3.11，gitignore），依赖见 `requirements.txt`
 - `README.md` — 新设备快速开始说明
 
@@ -28,6 +29,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 任务文件的约定（帮用户做题时遵守）
 
+- 做题流程：`练习导航.html` 找到单元 → 看同文件夹内 `X.html` 任务要求 → 做 `X.ipynb` → 答 `X.docx`（如需）。
 - **ipynb 是填空题**：答案处留 `_____________`，旁边标分值（如 `# 3分`）。填空而非重写单元格；多数任务为单格整段代码（仅 1.1.x 真分格），可在 Jupyter 里用 Split Cell 拆分。
 - **docx 是答题卷**：卷面标注「请勿修改答题卷，在指定单元格内填写答案」。
 
