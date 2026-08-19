@@ -1,0 +1,17 @@
+# Python 虚拟环境
+.venv/
+
+# 安装包与压缩包（解压后已在仓库内，无需保留源文件）
+Anaconda3-*.exe
+vm15pro_99970/
+vm15pro_99970.zip
+*.rar
+
+# Python / Jupyter 缓存
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# Windows
+Thumbs.db
+Desktop.ini
