@@ -7,6 +7,7 @@ import os
 import re
 import html
 import glob
+import json
 from urllib.parse import quote
 
 import pandas as pd
@@ -122,6 +123,16 @@ def main() -> None:
                 "png": "图片",
                 "txt": "标签",
             }.get(ext, "文件")
+            if ext == "ipynb":
+                # 含填空标记的是练习，否则是 enrich 生成的资料型笔记本
+                try:
+                    nb = json.load(open(os.path.join(d, f), encoding="utf-8"))
+                    text = "".join(
+                        "".join(c.get("source", [])) for c in nb["cells"]
+                    )
+                    role = "练习" if "__________" in text else "资料"
+                except Exception:
+                    role = "练习"
             files.append((f, role))
         units.append((unit, read_title(d, unit), files))
 

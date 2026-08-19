@@ -18,6 +18,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
   - **3.1.x**：docx + xlsx 领域数据集；**3.2.x**：ONNX 模型部署推理练习（resnet/mnist/emotion-ferplus/flower-detection/version-RFB-320）
   - **4.x**：仅 docx 答题卷
 - `scripts/generate_nav.py` — 导航页生成器：素材变动后运行 `python scripts/generate_nav.py` 重新生成（数据预览用 pandas，xlsx 需 openpyxl）
+- `scripts/enrich_notebooks.py` — 笔记本合并器：为每个单元 ipynb 顶部插入「任务要求 + 数据预览 + 答题卷」Markdown 单元格（标记 `<!-- auto:enriched -->`，幂等可重跑）
 - `.venv/` — uv 虚拟环境（CPython 3.11，gitignore），依赖见 `requirements.txt`
 - `README.md` — 新设备快速开始说明
 
@@ -30,8 +31,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 任务文件的约定（帮用户做题时遵守）
 
-- 做题流程：`练习导航.html` 找到单元 → 看同文件夹内 `X.html` 任务要求 → 做 `X.ipynb` → 答 `X.docx`（如需）。
-- **ipynb 是填空题**：答案处留 `_____________`，旁边标分值（如 `# 3分`）。填空而非重写单元格；多数任务为单格整段代码（仅 1.1.x 真分格），可在 Jupyter 里用 Split Cell 拆分。
+- 做题流程：`练习导航.html` 找到单元 → 打开 `X.ipynb`（顶部已嵌任务要求/数据预览/答题卷，无需另开文件）→ 填空作答 → 如需答题卷再开 `X.docx`。
+- **ipynb 是填空题**：答案处留 `_____________`，旁边标分值（如 `# 3分`）。填空而非重写单元格；多数任务为单格整段代码（仅 1.1.x 真分格），可在 Jupyter 里用 Split Cell 拆分。置顶的合并单元格带 `<!-- auto:enriched -->` 标记，可删但重跑脚本会恢复。
 - **docx 是答题卷**：卷面标注「请勿修改答题卷，在指定单元格内填写答案」。
 
 ## 注意事项
