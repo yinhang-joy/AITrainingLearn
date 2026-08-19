@@ -4,38 +4,36 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 目录性质
 
-这不是代码仓库，而是「人工智能训练师（三级）」职业技能等级考试的备考工作区。没有 git、构建脚本、测试或 CI。两个素材压缩包已解压到同名目录：`人工智能训练师三级上网素材/`（40 个编号任务目录）和 `人工智能训练师三级考试平台模拟界面/`（40 个 HTML）。Python 环境是 uv 管理的 `.venv/`（不用 Anaconda）。
+「人工智能训练师（三级）」职业技能等级考试的备考工作区，**已是 git 仓库**，远端为 GitHub private 仓库 `git@github.com:yinhang-joy/AITrainingLearn.git`（无 gh CLI，推送用 git 命令即可）。
 
-## 文件清单与用途
+官方素材压缩包已解压入库，源压缩包、Anaconda 安装包、VMware 安装包已删除本地不保留（均 gitignore，如重新下载回来也不会被追踪）。
 
-- `人工智能训练师三级上网素材.rar`（221 MiB，RAR5，无密码）— 官方训练素材，解压后根目录为 `人工智能训练师三级上网素材/`，按「章.节.任务」三级编号组织（每个编号一个子目录）：
-  - **1.1.x**（1.1.1–1.1.5）：Jupyter 填空练习（pandas/numpy 数据分析），每任务配一个 CSV 数据集（patient_data、sensor_data、credit_data、user_behavior_data、vehicle_traffic_data）
-  - **1.2.x**：仅 docx 答题卷
-  - **2.x**（2.1.x / 2.2.x）：docx 任务书 + ipynb + 数据集（auto-mpg、finance、fitness analysis、medical 等；涉及 Label Studio 数据标注、随机森林等模型训练）
-  - **3.1.x**：docx + xlsx 领域数据集（智能家居/教育/金融等）
-  - **3.2.x**：ONNX 模型部署推理练习（resnet、mnist、emotion-ferplus、flower-detection、version-RFB-320 人脸检测）。注意 3.2.1 的 `resnet.onnx` 约 102 MB
+## 目录结构
+
+- `人工智能训练师三级上网素材/` — 官方训练素材，按「章.节.任务」编号（如 1.1.1、3.2.1）：
+  - **1.x**：pandas/numpy 数据分析填空练习（ipynb + CSV 数据集）；1.2.x 仅 docx 答题卷
+  - **2.x**：docx 任务书 + ipynb + 数据集（含 Label Studio 标注、随机森林等模型训练）
+  - **3.1.x**：docx + xlsx 领域数据集；**3.2.x**：ONNX 模型部署推理练习（resnet/mnist/emotion-ferplus/flower-detection/version-RFB-320）
   - **4.x**：仅 docx 答题卷
-- `人工智能训练师三级考试平台模拟界面.rar`（318 KiB）— 考试平台模拟界面的离线存档，每个考核任务一个 HTML（1.1.1 到 4.2.5，与素材包编号一一对应）。HTML 的 `<title>` 即任务名称（如「2.2.3 日常运动量随机森林预测模型开发与测试」），正文含考核任务要求（设备环境、任务描述、考试结果）。**这是了解每个编号任务实际考核内容的第一手参考。**
-- `Anaconda3-2025.06-1-Windows-x86_64.exe` — Python/Jupyter 环境安装包（跑 ipynb 需要）
-- `vm15pro_99970/` 与 `vm15pro_99970.zip` — VMware Workstation 15.5.7 安装包（来自非官方下载站，安装有风险自担）
+- `人工智能训练师三级考试平台模拟界面/` — 考试平台模拟界面存档（HTML，与素材编号一一对应）。**先看同编号 HTML 了解官方任务要求，再回素材目录做题**
+- `.venv/` — uv 虚拟环境（CPython 3.11，gitignore），依赖见 `requirements.txt`
+- `README.md` — 新设备快速开始说明
 
 ## 常用操作
 
-- 运行 ipynb：用 `.venv` 里的 Jupyter —— `E:\AITraining\.venv\Scripts\jupyter-lab.exe`（依赖已装齐：pandas、numpy、scipy、Pillow、onnxruntime、scikit-learn、openpyxl）。素材包内残留 `__pycache__/box_utils_numpy.cpython-39.pyc`，说明官方编写环境是 Python 3.9，本地 3.12 无碍。
-- 重建环境：`cd E:\AITraining && uv venv .venv && uv pip install -p .venv jupyterlab pandas numpy scipy pillow onnxruntime scikit-learn openpyxl`
+- 启动 Jupyter：`E:\AITraining\.venv\Scripts\jupyter-lab.exe`（根目录为仓库根）
+- 重建环境：`uv venv .venv && uv pip install -r requirements.txt`
+- 日常提交：`git add -A; git commit -m "说明"; git push`（首次 clone 后 main 已跟踪 origin/main）
 - 快速读 docx 文本（不装 Office 时）：`unzip -p <file>.docx word/document.xml | sed 's/<[^>]*>/ /g'`
-- 解压/更新素材包（7-Zip 在 `C:\Program Files\7-Zip\7z.exe`）：
-  ```
-  "C:\Program Files\7-Zip\7z.exe" x "E:\AITraining\<压缩包>.rar" -o"E:\AITraining"
-  ```
 
-## 任务文件的约定（帮助用户做题时遵守）
+## 任务文件的约定（帮用户做题时遵守）
 
-- **ipynb 是填空题**：代码单元已给出，答案处留 `_____________` 空白，每题旁边标注分值（如 `# 3分`）。帮用户完成时应填空而非重写单元格。
+- **ipynb 是填空题**：答案处留 `_____________`，旁边标分值（如 `# 3分`）。填空而非重写单元格；多数任务为单格整段代码（仅 1.1.x 真分格），可在 Jupyter 里用 Split Cell 拆分。
 - **docx 是答题卷**：卷面标注「请勿修改答题卷，在指定单元格内填写答案」。
-- **编号跨包对应**：先打开模拟界面包中同编号的 HTML 看官方任务要求，再回到素材包对应目录做题。
 
 ## 注意事项
 
-- 素材包内中文文件名是 GBK 编码，7z 命令行在某些 shell 下列目录会乱码（编号路径不受影响）；用资源管理器或 PowerShell 操作最省事。
-- 解压后的素材与 `.venv/` 都在本目录内；将来若 git 管理本目录，必须 gitignore：`Anaconda3-*.exe`、`vm15pro_99970.zip`、两个 `.rar`、`.venv/`、以及素材里约 98 MB 的 `3.2.1/resnet.onnx`（接近 GitHub 100 MB 上限）。
+- 仓库含约 130 MB（.git 压缩后）大文件 —— 5 个 onnx 模型共 231 MB 用普通 git 硬推（非 LFS），GitHub 会给 98 MB 的两个文件挂警告属正常。
+- gitignore 排除：`.venv/`、`*.rar`、`Anaconda3-*.exe`、`vm15pro_99970*`、`__pycache__/`、`*.pyc`、`.ipynb_checkpoints/`。
+- **本机网络**：GitHub 22 端口被墙，`~/.ssh/config` 已把 `github.com` 路由到 `ssh.github.com:443`；新设备推送前需同样配置（或改 HTTPS remote）。
+- 素材内中文文件名在 git/控制台输出中显示为 C 风格转义（如 `"\344\272\272..."`），是正常现象，不是乱码文件。
