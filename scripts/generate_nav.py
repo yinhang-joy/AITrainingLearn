@@ -15,6 +15,7 @@ import pandas as pd
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MAT = "人工智能训练师三级上网素材"
 OUT = "练习导航.html"
+BOOK_WIKI = os.path.join("book-wiki", "ai-trainer-level-3")
 PREVIEW_ROWS = 8
 PREVIEW_COLS = 8
 
@@ -73,8 +74,48 @@ def jlab_url(rel: str) -> str:
     return "http://localhost:8888/lab/tree/" + quote(rel, safe="/")
 
 
-def build_card(unit: str, title: str, files) -> str:
+def load_learning_materials() -> dict:
+    """扫描 book-wiki 学习材料，返回 {unit: {lecture, concepts}}"""
+    out = {}
+    lect_dir = os.path.join(ROOT, BOOK_WIKI, "lectures")
+    if os.path.isdir(lect_dir):
+        for f in sorted(os.listdir(lect_dir)):
+            if not f.endswith(".md"):
+                continue
+            m = re.match(r"(\d+\.\d+\.\d+)-", f)
+            if not m:
+                continue
+            unit = m.group(1)
+            ltitle = os.path.splitext(f)[0].split("-", 1)[1] if "-" in f else f
+            rel = os.path.join(BOOK_WIKI, "lectures", f).replace("\\", "/")
+            out.setdefault(unit, {})["lecture"] = (rel, ltitle)
+    conc_dir = os.path.join(ROOT, BOOK_WIKI, "concepts")
+    if os.path.isdir(conc_dir):
+        for f in sorted(os.listdir(conc_dir)):
+            if not f.endswith(".md"):
+                continue
+            text = open(os.path.join(conc_dir, f), encoding="utf-8").read()
+            m = re.search(r"\*\*来源章节\*\*:\s*(\d+\.\d+\.\d+)", text)
+            if not m:
+                continue
+            dm = re.search(r"\*\*定义\*\*:\s*(.+)", text)
+            summary = html.unescape(dm.group(1).strip()) if dm else ""
+            name = os.path.splitext(f)[0]
+            rel = os.path.join(BOOK_WIKI, "concepts", f).replace("\\", "/")
+            out.setdefault(m.group(1), {}).setdefault("concepts", []).append(
+                (name, rel, summary)
+            )
+    return out
+
+
+def build_card(unit: str, title: str, files, learning=None) -> str:
     links, previews, jbtns = [], [], []
+    if learning and "lecture" in learning:
+        rel, ltitle = learning["lecture"]
+        links.append(
+            f'<a href="{html.escape(rel)}" target="_blank" class="file lect" '
+            f'title="{html.escape(rel)}">📖 讲义<span class="fn">{html.escape(ltitle)}</span></a>'
+        )
     for f, role in files:
         rel = os.path.join(MAT, unit, f).replace("\\", "/")
         if f.endswith(".ipynb"):
@@ -92,15 +133,25 @@ def build_card(unit: str, title: str, files) -> str:
             f'title="{html.escape(rel)}">{role}<span class="fn">{html.escape(f)}</span></a>'
         )
     jrow = f'<div class="jrow">{"".join(jbtns)}</div>' if jbtns else ""
+    krow = ""
+    if learning and learning.get("concepts"):
+        chips = "".join(
+            f'<a href="{html.escape(rel)}" target="_blank" class="concept" '
+            f'title="{html.escape(summary)}">{html.escape(name)}</a>'
+            for name, rel, summary in learning["concepts"]
+        )
+        krow = f'<div class="krow"><span class="klabel">知识点</span>{chips}</div>'
     return f"""<section class="card">
       <div class="card-head"><span class="no">{unit}</span><h3>{html.escape(title)}</h3></div>
       <div class="links">{"".join(links)}</div>
+      {krow}
       {jrow}
       {"".join(previews)}
     </section>"""
 
 
 def main() -> None:
+    learning = load_learning_materials()
     units = []
     for d in sorted(
         glob.glob(os.path.join(MAT, "*")),
@@ -142,7 +193,9 @@ def main() -> None:
 
     sections = []
     for g in sorted(groups):
-        cards = "".join(build_card(u, t, fs) for u, t, fs in groups[g])
+        cards = "".join(
+            build_card(u, t, fs, learning.get(u)) for u, t, fs in groups[g]
+        )
         sections.append(
             f'<h2 class="chapter">第 {g} 章（{g}.x）</h2><div class="grid">{cards}</div>'
         )
@@ -176,6 +229,12 @@ h3 {{ font-size:14px; font-weight:600; }}
 .jrow {{ margin-top:10px; }}
 .jbtn {{ display:inline-block; text-decoration:none; color:var(--accent); border:1px solid var(--accent); border-radius:6px; padding:3px 12px; font-size:12px; margin-right:6px; }}
 .jbtn:hover {{ background:var(--chip); }}
+.lect {{ border-color:#9333ea; color:#9333ea; }}
+.lect:hover {{ background:#faf5ff; }}
+.krow {{ margin-top:8px; display:flex; flex-wrap:wrap; align-items:baseline; gap:6px; }}
+.klabel {{ color:var(--muted); font-size:12px; }}
+.concept {{ text-decoration:none; color:var(--fg); border:1px dashed var(--line); border-radius:999px; padding:1px 10px; font-size:12px; }}
+.concept:hover {{ border-color:var(--accent); color:var(--accent); }}
 .preview {{ margin-top:10px; }}
 .preview summary {{ cursor:pointer; color:var(--muted); font-size:12px; user-select:none; }}
 .tblwrap {{ overflow-x:auto; max-height:260px; overflow-y:auto; border:1px solid var(--line); border-radius:6px; margin-top:6px; }}

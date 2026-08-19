@@ -4,7 +4,11 @@
 
 | Concept | Chapter | Status | Last Tested | Next Review |
 |---------|---------|--------|-------------|-------------|
-| (auto-populated on ingest) | | | | |
+| pandas-read-csv | 1.1.1 | Untested | - | - |
+| boolean-indexing | 1.1.1 | Untested | - | - |
+| boolean-mean-ratio | 1.1.1 | Untested | - | - |
+| pd-cut-binning | 1.1.1 | Untested | - | - |
+| groupby-aggregation | 1.1.1 | Untested | - | - |
 
 ## Models
 
@@ -12,7 +16,7 @@
 |-------|---------|--------|-------------|-------------|
 
 ## Stats
-- Total knowledge points: 0
+- Total knowledge points: 5
 - Mastered: 0 (0%)
 - Due for review: 0
-- Untested: 0
+- Untested: 5
