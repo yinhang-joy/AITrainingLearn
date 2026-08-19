@@ -287,9 +287,11 @@ def build_card(unit: str, title: str, files, learning=None) -> str:
             f'<a href="{html.escape(rpath)}" target="_blank" class="file lect" '
             f'title="讲义+知识点完整页面">📖 讲义<span class="fn">{html.escape(ltitle)}</span></a>'
         )
+    has_ipynb = False
     for f, role in files:
         rel = os.path.join(MAT, unit, f).replace("\\", "/")
         if f.endswith(".ipynb"):
+            has_ipynb = True
             jbtns.append(
                 f'<a href="{jlab_url(rel)}" target="_blank" class="jbtn">在 Jupyter 打开</a>'
             )
@@ -302,6 +304,10 @@ def build_card(unit: str, title: str, files, learning=None) -> str:
         links.append(
             f'<a href="{html.escape(rel)}" target="_blank" class="file" '
             f'title="{html.escape(rel)}">{role}<span class="fn">{html.escape(f)}</span></a>'
+        )
+    if has_ipynb:
+        jbtns.append(
+            f'<button class="jbtn reset" onclick="resetNotebook(\'{unit}\')">🔄 重置</button>'
         )
     jrow = f'<div class="jrow">{"".join(jbtns)}</div>' if jbtns else ""
     return f"""<section class="card">
@@ -389,8 +395,10 @@ h3 {{ font-size:14px; font-weight:600; }}
 .file:hover {{ border-color:var(--accent); }}
 .fn {{ color:var(--muted); max-width:150px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }}
 .jrow {{ margin-top:10px; }}
-.jbtn {{ display:inline-block; text-decoration:none; color:var(--accent); border:1px solid var(--accent); border-radius:6px; padding:3px 12px; font-size:12px; margin-right:6px; }}
+.jbtn {{ display:inline-block; text-decoration:none; color:var(--accent); border:1px solid var(--accent); border-radius:6px; padding:3px 12px; font-size:12px; margin-right:6px; background:transparent; cursor:pointer; font-family:inherit; }}
 .jbtn:hover {{ background:var(--chip); }}
+.jbtn.reset {{ border-color:#ef4444; color:#ef4444; }}
+.jbtn.reset:hover {{ background:#fef2f2; }}
 .lect {{ border-color:#9333ea; color:#9333ea; }}
 .lect:hover {{ background:#faf5ff; }}
 details.preview {{ margin-top:10px; }}
@@ -408,6 +416,22 @@ th {{ background:var(--chip); position:sticky; top:0; }}
   <p class="tip">每个单元一个卡片，所有链接在新标签页打开。任务要求（HTML）浏览器打开 · 答题卷（docx）Word 打开 · 练习/数据可经「在 Jupyter 打开 / Jupyter 表格」查看（需 Jupyter 运行于本机 8888 端口）· 数据卡片内附前几行预览。导航页由 scripts/generate_nav.py 生成，素材变动后重新运行即可。</p>
 </header>
 {"".join(sections)}
+<script>
+function resetNotebook(unit) {{
+  if (!confirm(`确定要重置 ${{unit}} 的练习笔记本吗?\\n已填写的内容将被清空，恢复为原始填空状态。`)) return;
+  fetch('http://localhost:8765/reset', {{
+    method: 'POST',
+    headers: {{'Content-Type': 'application/json'}},
+    body: JSON.stringify({{unit: unit}})
+  }})
+  .then(r => r.json())
+  .then(d => {{
+    if (d.success) alert(`✅ ${{unit}} 重置成功\\n${{d.message}}`);
+    else alert(`❌ 重置失败\\n${{d.error}}`);
+  }})
+  .catch(e => alert(`❌ 请求失败\\n${{e.message}}\\n\\n请确保 Python 重置服务已启动:\\npython scripts/reset_service.py`));
+}}
+</script>
 </body>
 </html>"""
 
