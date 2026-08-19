@@ -16,6 +16,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MAT = "人工智能训练师三级上网素材"
 OUT = "练习导航.html"
 BOOK_WIKI = os.path.join("book-wiki", "ai-trainer-level-3")
+RENDERED_DIR = os.path.join(BOOK_WIKI, "rendered")
 PREVIEW_ROWS = 8
 PREVIEW_COLS = 8
 
@@ -176,8 +177,64 @@ def md_to_html(src: str) -> str:
     return "\n".join(parts)
 
 
+def render_standalone_lecture(unit: str, lecture_title: str, lecture_body: str, concepts: list) -> str:
+    """生成独立讲义HTML页面（含知识点卡片）"""
+    concept_section = ""
+    if concepts:
+        cards = "".join(
+            f'<section class="concept-card"><h3>{html.escape(name)}</h3><div class="content">{body}</div></section>'
+            for name, _, _, body in concepts
+        )
+        concept_section = f'<section class="concepts"><h2>知识点卡片</h2>{cards}</section>'
+
+    return f"""<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{html.escape(unit)} {html.escape(lecture_title)}</title>
+<style>
+:root {{ --bg:#fff; --fg:#1a1a1a; --line:#e5e5e5; --muted:#737373; --accent:#2563eb; --chip:#f5f5f5; }}
+@media (prefers-color-scheme:dark) {{ :root:not([data-theme="light"]) {{ --bg:#0a0a0a; --fg:#ededed; --line:#262626; --muted:#a3a3a3; --accent:#60a5fa; --chip:#1a1a1a; }} }}
+:root[data-theme="dark"] {{ --bg:#0a0a0a; --fg:#ededed; --line:#262626; --muted:#a3a3a3; --accent:#60a5fa; --chip:#1a1a1a; }}
+* {{ margin:0; padding:0; box-sizing:border-box; }}
+body {{ background:var(--bg); color:var(--fg); font-family:system-ui,-apple-system,sans-serif; line-height:1.6; padding:20px; max-width:900px; margin:0 auto; }}
+h1 {{ font-size:24px; margin:0 0 20px; padding-bottom:10px; border-bottom:2px solid var(--line); }}
+h2 {{ font-size:20px; margin:24px 0 12px; color:var(--accent); }}
+h3 {{ font-size:17px; margin:16px 0 8px; }}
+h4 {{ font-size:15px; margin:12px 0 6px; }}
+h5 {{ font-size:14px; margin:10px 0 4px; }}
+p {{ margin:8px 0; }}
+ul {{ margin:8px 0 8px 24px; }}
+li {{ margin:3px 0; }}
+pre {{ background:var(--chip); border:1px solid var(--line); border-radius:8px; padding:12px; overflow-x:auto; margin:12px 0; }}
+code {{ font-family:Consolas,Monaco,monospace; font-size:13px; }}
+p code {{ background:var(--chip); padding:2px 6px; border-radius:4px; }}
+table {{ border-collapse:collapse; margin:12px 0; font-size:14px; width:100%; }}
+th, td {{ border:1px solid var(--line); padding:6px 12px; text-align:left; }}
+th {{ background:var(--chip); font-weight:600; }}
+blockquote {{ border-left:4px solid var(--accent); margin:12px 0; padding:4px 14px; color:var(--muted); background:var(--chip); }}
+hr {{ border:none; border-top:1px solid var(--line); margin:20px 0; }}
+details summary {{ cursor:pointer; color:var(--accent); font-weight:500; user-select:none; }}
+.wikilink {{ color:var(--accent); }}
+.concepts {{ margin-top:40px; padding-top:20px; border-top:2px solid var(--line); }}
+.concept-card {{ border:1px solid var(--line); border-radius:8px; padding:16px; margin:16px 0; background:var(--chip); }}
+.concept-card h3 {{ margin-top:0; color:#9333ea; }}
+.content > *:first-child {{ margin-top:0; }}
+.content > *:last-child {{ margin-bottom:0; }}
+</style>
+</head>
+<body>
+<h1>{html.escape(unit)} {html.escape(lecture_title)}</h1>
+<div class="lecture-body">{lecture_body}</div>
+{concept_section}
+</body>
+</html>"""
+
+
 def load_learning_materials() -> dict:
-    """扫描 book-wiki 学习材料，返回 {unit: {lecture, concepts}}（含渲染好的 HTML）"""
+    """扫描 book-wiki 学习材料，返回 {unit: {lecture, concepts, rendered_path}}"""
+    os.makedirs(os.path.join(ROOT, RENDERED_DIR), exist_ok=True)
     out = {}
     lect_dir = os.path.join(ROOT, BOOK_WIKI, "lectures")
     if os.path.isdir(lect_dir):
@@ -209,20 +266,26 @@ def load_learning_materials() -> dict:
             out.setdefault(m.group(1), {}).setdefault("concepts", []).append(
                 (name, rel, summary, body)
             )
+    # 生成独立HTML页面
+    for unit, data in out.items():
+        if "lecture" in data:
+            _, ltitle, lbody = data["lecture"]
+            concepts = data.get("concepts", [])
+            html_content = render_standalone_lecture(unit, ltitle, lbody, concepts)
+            rendered_path = os.path.join(RENDERED_DIR, f"{unit}.html")
+            open(os.path.join(ROOT, rendered_path), "w", encoding="utf-8").write(html_content)
+            data["rendered_path"] = rendered_path.replace("\\", "/")
     return out
 
 
 def build_card(unit: str, title: str, files, learning=None) -> str:
-    links, previews, jbtns, lecture_html, concepts_html = [], [], [], "", ""
-    if learning and "lecture" in learning:
-        rel, ltitle, body = learning["lecture"]
+    links, previews, jbtns = [], [], []
+    if learning and "rendered_path" in learning:
+        _, ltitle, _ = learning["lecture"]
+        rpath = learning["rendered_path"]
         links.append(
-            f'<a href="{html.escape(rel)}" target="_blank" class="file lect" '
-            f'title="{html.escape(rel)}">📖 讲义<span class="fn">{html.escape(ltitle)}</span></a>'
-        )
-        lecture_html = (
-            f'<details class="lecture"><summary>📖 讲义阅读（{html.escape(ltitle)}）</summary>'
-            f'<div class="md">{body}</div></details>'
+            f'<a href="{html.escape(rpath)}" target="_blank" class="file lect" '
+            f'title="讲义+知识点完整页面">📖 讲义<span class="fn">{html.escape(ltitle)}</span></a>'
         )
     for f, role in files:
         rel = os.path.join(MAT, unit, f).replace("\\", "/")
@@ -241,27 +304,9 @@ def build_card(unit: str, title: str, files, learning=None) -> str:
             f'title="{html.escape(rel)}">{role}<span class="fn">{html.escape(f)}</span></a>'
         )
     jrow = f'<div class="jrow">{"".join(jbtns)}</div>' if jbtns else ""
-    krow = ""
-    if learning and learning.get("concepts"):
-        chips = "".join(
-            f'<a href="{html.escape(rel)}" target="_blank" class="concept" '
-            f'title="{html.escape(summary)}">{html.escape(name)}</a>'
-            for name, rel, summary, _ in learning["concepts"]
-        )
-        cards = "".join(
-            f'<section class="ccard"><h4>{html.escape(name)}</h4><div class="md">{body}</div></section>'
-            for name, rel, _, body in learning["concepts"]
-        )
-        n = len(learning["concepts"])
-        krow = (
-            f'<div class="krow"><span class="klabel">知识点</span>{chips}</div>'
-            f'<details class="lecture"><summary>知识点卡片（{n} 个，点击展开）</summary>{cards}</details>'
-        )
     return f"""<section class="card">
       <div class="card-head"><span class="no">{unit}</span><h3>{html.escape(title)}</h3></div>
       <div class="links">{"".join(links)}</div>
-      {lecture_html}
-      {krow}
       {jrow}
       {"".join(previews)}
     </section>"""
@@ -348,30 +393,7 @@ h3 {{ font-size:14px; font-weight:600; }}
 .jbtn:hover {{ background:var(--chip); }}
 .lect {{ border-color:#9333ea; color:#9333ea; }}
 .lect:hover {{ background:#faf5ff; }}
-.krow {{ margin-top:8px; display:flex; flex-wrap:wrap; align-items:baseline; gap:6px; }}
-.klabel {{ color:var(--muted); font-size:12px; }}
-.concept {{ text-decoration:none; color:var(--fg); border:1px dashed var(--line); border-radius:999px; padding:1px 10px; font-size:12px; }}
-.concept:hover {{ border-color:var(--accent); color:var(--accent); }}
-.lecture {{ margin-top:10px; }}
-.lecture summary {{ cursor:pointer; color:#9333ea; font-size:12px; user-select:none; padding:4px 8px; background:var(--chip); border-radius:6px; }}
-.md {{ border:1px solid var(--line); border-radius:6px; padding:10px 14px; margin-top:6px; max-height:520px; overflow-y:auto; font-size:13px; }}
-.md h3 {{ font-size:15px; margin:10px 0 6px; }}
-.md h4 {{ font-size:14px; margin:10px 0 6px; }}
-.md h5 {{ font-size:13px; margin:8px 0 4px; }}
-.md p {{ margin:6px 0; }}
-.md ul {{ margin:6px 0 6px 20px; }}
-.md li {{ margin:2px 0; }}
-.md pre {{ background:var(--chip); border:1px solid var(--line); border-radius:6px; padding:8px 10px; overflow-x:auto; margin:8px 0; }}
-.md code {{ font-family:Consolas,monospace; font-size:12px; }}
-.md table.md {{ border-collapse:collapse; margin:8px 0; font-size:12px; }}
-.md table.md th, .md table.md td {{ border:1px solid var(--line); padding:4px 10px; text-align:left; }}
-.md table.md th {{ background:var(--chip); }}
-.md blockquote {{ border-left:3px solid var(--accent); margin:8px 0; padding:2px 10px; color:var(--muted); }}
-.md hr {{ border:none; border-top:1px solid var(--line); margin:10px 0; }}
-.md summary {{ cursor:pointer; color:var(--accent); }}
-.wikilink {{ color:var(--accent); font-size:12px; }}
-.ccard {{ border-bottom:1px dashed var(--line); padding:4px 0 8px; }}
-.ccard h4 {{ margin:6px 0 2px; }}
+details.preview {{ margin-top:10px; }}
 .preview {{ margin-top:10px; }}
 .preview summary {{ cursor:pointer; color:var(--muted); font-size:12px; user-select:none; }}
 .tblwrap {{ overflow-x:auto; max-height:260px; overflow-y:auto; border:1px solid var(--line); border-radius:6px; margin-top:6px; }}
