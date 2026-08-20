@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>1.1.2 智能农业系统业务数据采集和处理流程设计</title>
+<style>
+:root { --bg:#fff; --fg:#1a1a1a; --line:#e5e5e5; --muted:#737373; --accent:#2563eb; --chip:#f5f5f5; }
+@media (prefers-color-scheme:dark) { :root:not([data-theme="light"]) { --bg:#0a0a0a; --fg:#ededed; --line:#262626; --muted:#a3a3a3; --accent:#60a5fa; --chip:#1a1a1a; } }
+:root[data-theme="dark"] { --bg:#0a0a0a; --fg:#ededed; --line:#262626; --muted:#a3a3a3; --accent:#60a5fa; --chip:#1a1a1a; }
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:var(--bg); color:var(--fg); font-family:system-ui,-apple-system,sans-serif; line-height:1.6; padding:20px; max-width:900px; margin:0 auto; }
+h1 { font-size:24px; margin:0 0 20px; padding-bottom:10px; border-bottom:2px solid var(--line); }
+h2 { font-size:20px; margin:24px 0 12px; color:var(--accent); }
+h3 { font-size:17px; margin:16px 0 8px; }
+h4 { font-size:15px; margin:12px 0 6px; }
+h5 { font-size:14px; margin:10px 0 4px; }
+p { margin:8px 0; }
+ul { margin:8px 0 8px 24px; }
+li { margin:3px 0; }
+pre { background:var(--chip); border:1px solid var(--line); border-radius:8px; padding:12px; overflow-x:auto; margin:12px 0; }
+code { font-family:Consolas,Monaco,monospace; font-size:13px; }
+p code { background:var(--chip); padding:2px 6px; border-radius:4px; }
+table { border-collapse:collapse; margin:12px 0; font-size:14px; width:100%; }
+th, td { border:1px solid var(--line); padding:6px 12px; text-align:left; }
+th { background:var(--chip); font-weight:600; }
+blockquote { border-left:4px solid var(--accent); margin:12px 0; padding:4px 14px; color:var(--muted); background:var(--chip); }
+hr { border:none; border-top:1px solid var(--line); margin:20px 0; }
+details summary { cursor:pointer; color:var(--accent); font-weight:500; user-select:none; }
+.wikilink { color:var(--accent); }
+.concepts { margin-top:40px; padding-top:20px; border-top:2px solid var(--line); }
+.concept-card { border:1px solid var(--line); border-radius:8px; padding:16px; margin:16px 0; background:var(--chip); }
+.concept-card h3 { margin-top:0; color:#9333ea; }
+.content > *:first-child { margin-top:0; }
+.content > *:last-child { margin-bottom:0; }
+</style>
+</head>
+<body>
+<h1>1.1.2 智能农业系统业务数据采集和处理流程设计</h1>
+<div class="lecture-body"><h3>1.1.2 讲义：智能农业系统中的业务数据采集和处理流程设计</h3>
+<ul>
+<li><strong>日期</strong>: 2026-08-19</li>
+<li><strong>状态</strong>: 已讲解，待自测 → 待做题（ipynb）</li>
+<li><strong>数据</strong>: <code>sensor_data.csv</code>（10000 行 × 5 列：SensorID / Timestamp / SensorType / Value / Location，无缺失值）</li>
+<li><strong>考核时间</strong>: 30 分钟，机考</li>
+</ul>
+<hr>
+<h4>一、任务解读（1.1.1 的知识 + 新增 3 个操作）</h4>
+<h5>复用 1.1.1 的知识</h5>
+<table class='md'><thead><tr>
+<th>1.1.1 已学</th><th>1.1.2 复用场景</th>
+</tr></thead><tbody>
+<tr><td><code>groupby().mean()</code></td><td>任务①：按传感器类型统计平均值</td></tr>
+<tr><td><code>groupby().count()</code></td><td>任务①：统计每种传感器的数据数量</td></tr>
+<tr><td>多条件筛选</td><td>任务②：只选 Temperature / Humidity 两种传感器</td></tr>
+</tbody></table>
+<h5>新增知识点（本单元重点）</h5>
+<table class='md'><thead><tr>
+<th>新操作</th><th>对应任务</th><th>中文 → pandas</th>
+</tr></thead><tbody>
+<tr><td><strong>缺失值填充</strong></td><td>任务③</td><td><code>.fillna(method='ffill')</code> 前向填充</td></tr>
+<tr><td><strong>异常值标记</strong></td><td>任务③</td><td>布尔索引 + 新列赋值</td></tr>
+<tr><td><strong>保存 CSV</strong></td><td>任务③</td><td><code>.to_csv('cleaned.csv', index=False)</code></td></tr>
+</tbody></table>
+<hr>
+<h4>二、任务拆解</h4>
+<h5>任务①：传感器数据统计</h5>
+<p><strong>中文要求</strong>：统计每种传感器的数据数量和平均值</p>
+<p><strong>翻译成 pandas</strong>：</p>
+<pre><code>df.groupby(&#x27;SensorType&#x27;)[&#x27;Value&#x27;].agg([&#x27;count&#x27;, &#x27;mean&#x27;])</code></pre>
+<p><strong>知识点</strong>：<code>groupby</code> + <code>.agg()</code> 一次算多个统计量（count 数量 / mean 平均值）</p>
+<hr>
+<h5>任务②：按位置统计温度和湿度平均值</h5>
+<p><strong>中文要求</strong>：每个位置（Location）的温度（Temperature）和湿度（Humidity）传感器数据的平均值</p>
+<p><strong>翻译成 pandas</strong>：</p>
+<pre><code># 1. 先筛选出温度和湿度两种传感器
+temp_humidity = df[df[&#x27;SensorType&#x27;].isin([&#x27;Temperature&#x27;, &#x27;Humidity&#x27;])]
+
+# 2. 按位置 + 传感器类型分组，求平均值
+temp_humidity.groupby([&#x27;Location&#x27;, &#x27;SensorType&#x27;])[&#x27;Value&#x27;].mean()</code></pre>
+<p><strong>新知识点</strong>：<code>.isin([列表])</code> 筛选多个值（比 <code>== 'Temperature' | == 'Humidity'</code> 简洁）</p>
+<hr>
+<h5>任务③：数据清洗（本单元核心）</h5>
+<p><strong>中文要求</strong>：</p>
+<p>1. 标记异常值：温度 &gt; 50 或湿度 &gt; 100</p>
+<p>2. 缺失值填充：前向填充（ffill），前面没有就后向填充（bfill）</p>
+<p>3. 保存为 <code>cleaned_sensor_data.csv</code></p>
+<p><strong>翻译成 pandas</strong>：</p>
+<pre><code># 1. 标记异常值（新增一列）
+df[&#x27;Anomaly&#x27;] = ((df[&#x27;SensorType&#x27;] == &#x27;Temperature&#x27;) &amp; (df[&#x27;Value&#x27;] &gt; 50)) | \
+                ((df[&#x27;SensorType&#x27;] == &#x27;Humidity&#x27;) &amp; (df[&#x27;Value&#x27;] &gt; 100))
+
+# 2. 统计异常值数量
+print(df[&#x27;Anomaly&#x27;].sum())
+
+# 3. 缺失值填充（虽然当前数据无缺失，但考试要写）
+df[&#x27;Value&#x27;] = df[&#x27;Value&#x27;].fillna(method=&#x27;ffill&#x27;).fillna(method=&#x27;bfill&#x27;)
+
+# 4. 保存清洗后的数据
+df.to_csv(&#x27;cleaned_sensor_data.csv&#x27;, index=False)</code></pre>
+<hr>
+<h4>三、新知识点详解</h4>
+<h5>① <code>.isin()</code> —— 多值筛选</h5>
+<pre><code># 笨办法（写两次条件）
+df[(df[&#x27;SensorType&#x27;] == &#x27;Temperature&#x27;) | (df[&#x27;SensorType&#x27;] == &#x27;Humidity&#x27;)]
+
+# 简洁写法
+df[df[&#x27;SensorType&#x27;].isin([&#x27;Temperature&#x27;, &#x27;Humidity&#x27;])]</code></pre>
+<p><strong>原理</strong>：<code>.isin(['A', 'B'])</code> 检查每行是否在列表里，返回布尔列。</p>
+<hr>
+<h5>② <code>.fillna(method='ffill')</code> —— 前向填充</h5>
+<pre><code># 假设 Value 列有缺失值：
+# [10, NaN, NaN, 20, 30, NaN]
+
+df[&#x27;Value&#x27;].fillna(method=&#x27;ffill&#x27;)
+# 结果：[10, 10, 10, 20, 30, 30]
+# 每个 NaN 用它前面的值填充
+
+df[&#x27;Value&#x27;].fillna(method=&#x27;bfill&#x27;)
+# 结果：[10, 20, 20, 20, 30, NaN]
+# 每个 NaN 用它后面的值填充（最后一个 NaN 无后续值仍是 NaN）</code></pre>
+<p><strong>链式填充</strong>（考试常用）：</p>
+<pre><code>df[&#x27;Value&#x27;].fillna(method=&#x27;ffill&#x27;).fillna(method=&#x27;bfill&#x27;)
+# 先前向填充，还有剩余 NaN 再后向填充</code></pre>
+<p><strong>参数对照表</strong>：</p>
+<table class='md'><thead><tr>
+<th>method 参数</th><th>含义</th><th>别名</th>
+</tr></thead><tbody>
+<tr><td><code>'ffill'</code></td><td>forward fill（前向填充）</td><td><code>'pad'</code></td></tr>
+<tr><td><code>'bfill'</code></td><td>backward fill（后向填充）</td><td><code>'backfill'</code></td></tr>
+</tbody></table>
+<hr>
+<h5>③ 异常值标记 —— 布尔索引 + 新列赋值</h5>
+<pre><code># 温度 &gt; 50 是异常
+df[&#x27;Anomaly&#x27;] = (df[&#x27;SensorType&#x27;] == &#x27;Temperature&#x27;) &amp; (df[&#x27;Value&#x27;] &gt; 50)
+# 每行是 True（异常）或 False（正常）
+
+# 同时标记两种异常：温度 &gt; 50 或湿度 &gt; 100
+df[&#x27;Anomaly&#x27;] = ((df[&#x27;SensorType&#x27;] == &#x27;Temperature&#x27;) &amp; (df[&#x27;Value&#x27;] &gt; 50)) | \
+                ((df[&#x27;SensorType&#x27;] == &#x27;Humidity&#x27;) &amp; (df[&#x27;Value&#x27;] &gt; 100))
+# ⚠️ 注意：每个条件要加括号，因为 &amp; 优先级高于 ==</code></pre>
+<p><strong>统计异常数量</strong>：</p>
+<pre><code>df[&#x27;Anomaly&#x27;].sum()    # True=1、False=0，求和 = 异常行数</code></pre>
+<hr>
+<h5>④ <code>.to_csv()</code> —— 保存 CSV</h5>
+<pre><code>df.to_csv(&#x27;cleaned_sensor_data.csv&#x27;, index=False)</code></pre>
+<p><strong>参数</strong>：</p>
+<ul>
+<li>第一个参数：文件名（相对路径，保存在工作目录）</li>
+<li><code>index=False</code>：不保存行号列（考试必加，否则会多一列 0,1,2...）</li>
+</ul>
+<hr>
+<h4>四、完整解题流程演示</h4>
+<pre><code>import pandas as pd
+
+# 读取数据
+df = pd.read_csv(&#x27;sensor_data.csv&#x27;)
+
+# 任务①：每种传感器的数据数量和平均值
+task1 = df.groupby(&#x27;SensorType&#x27;)[&#x27;Value&#x27;].agg([&#x27;count&#x27;, &#x27;mean&#x27;])
+print(task1)
+#                 count       mean
+# Humidity         2036  50.234567
+# Light            1982  49.876543
+# SoilMoisture     1995  50.123456
+# SoilPH           2001  49.987654
+# Temperature      1986  25.345678
+
+# 任务②：每个位置的温度和湿度平均值
+temp_humidity = df[df[&#x27;SensorType&#x27;].isin([&#x27;Temperature&#x27;, &#x27;Humidity&#x27;])]
+task2 = temp_humidity.groupby([&#x27;Location&#x27;, &#x27;SensorType&#x27;])[&#x27;Value&#x27;].mean()
+print(task2)
+# Location  SensorType
+# Field1    Humidity       50.1
+#           Temperature    25.3
+# Field2    Humidity       50.5
+#           Temperature    25.1
+# ...
+
+# 任务③：数据清洗
+# 1. 标记异常值
+df[&#x27;Anomaly&#x27;] = ((df[&#x27;SensorType&#x27;] == &#x27;Temperature&#x27;) &amp; (df[&#x27;Value&#x27;] &gt; 50)) | \
+                ((df[&#x27;SensorType&#x27;] == &#x27;Humidity&#x27;) &amp; (df[&#x27;Value&#x27;] &gt; 100))
+print(&#x27;异常值数量:&#x27;, df[&#x27;Anomaly&#x27;].sum())
+
+# 2. 缺失值填充（虽然数据无缺失，但题目要求写）
+df[&#x27;Value&#x27;] = df[&#x27;Value&#x27;].fillna(method=&#x27;ffill&#x27;).fillna(method=&#x27;bfill&#x27;)
+
+# 3. 保存清洗后的数据
+df.to_csv(&#x27;cleaned_sensor_data.csv&#x27;, index=False)</code></pre>
+<hr>
+<h4>五、易错点（考试陷阱）</h4>
+<h5>⚠️ 陷阱 1：<code>.isin()</code> 里要用列表</h5>
+<pre><code># ❌ 错误
+df[df[&#x27;SensorType&#x27;].isin(&#x27;Temperature&#x27;, &#x27;Humidity&#x27;)]  # isin() 只接受一个参数
+
+# ✅ 正确
+df[df[&#x27;SensorType&#x27;].isin([&#x27;Temperature&#x27;, &#x27;Humidity&#x27;])]  # 必须用列表</code></pre>
+<hr>
+<h5>⚠️ 陷阱 2：复杂条件必须加括号</h5>
+<pre><code># ❌ 错误（运算符优先级导致逻辑错误）
+df[&#x27;Anomaly&#x27;] = df[&#x27;SensorType&#x27;] == &#x27;Temperature&#x27; &amp; df[&#x27;Value&#x27;] &gt; 50
+
+# ✅ 正确
+df[&#x27;Anomaly&#x27;] = (df[&#x27;SensorType&#x27;] == &#x27;Temperature&#x27;) &amp; (df[&#x27;Value&#x27;] &gt; 50)</code></pre>
+<p><strong>原因</strong>：<code>&amp;</code> 的优先级高于 <code>==</code>，不加括号相当于 <code>df['SensorType'] == (wrong expression)</code></p>
+<hr>
+<h5>⚠️ 陷阱 3：<code>.to_csv()</code> 忘记 <code>index=False</code></h5>
+<pre><code># ❌ 错误（多一列行号）
+df.to_csv(&#x27;cleaned.csv&#x27;)
+# 结果 CSV 第一列是 0,1,2,3...
+
+# ✅ 正确
+df.to_csv(&#x27;cleaned.csv&#x27;, index=False)</code></pre>
+<hr>
+<h4>六、自测题</h4>
+<p>1. <code>.isin(['A', 'B'])</code> 和 <code>== 'A' | == 'B'</code> 的结果相同吗？为什么 <code>.isin()</code> 更安全？</p>
+<p>2. <code>.fillna(method='ffill').fillna(method='bfill')</code> 为什么要链式调用两次？单独用 <code>ffill</code> 会留下什么情况的 NaN？</p>
+<p>3. <code>(df['A'] &gt; 10) &amp; (df['B'] &lt; 5)</code> 里的括号能去掉吗？为什么？</p>
+<details>
+<summary>参考答案（先自测再看）</summary>
+<p>1. <strong>结果相同，但 <code>.isin()</code> 更安全</strong>：</p>
+<ul>
+<li><code>== 'A' | == 'B'</code> 在 pandas 里语法错误（运算符优先级问题，需要写成 <code>(df['col'] == 'A') | (df['col'] == 'B')</code>）</li>
+<li><code>.isin(['A', 'B'])</code> 一行搞定，不会因括号漏写出错，且更易读</li>
+</ul>
+<p>2. <strong>链式调用处理首尾 NaN</strong>：</p>
+<ul>
+<li><code>ffill</code> 只能填充「有前面值」的 NaN，<strong>第一行如果是 NaN 无法填充</strong></li>
+<li><code>bfill</code> 只能填充「有后面值」的 NaN，<strong>最后一行如果是 NaN 无法填充</strong></li>
+<li>链式：<code>ffill</code> 填中间，<code>bfill</code> 补首尾，覆盖所有情况</li>
+</ul>
+<p>3. <strong>不能去括号，会逻辑错误</strong>：</p>
+<ul>
+<li><code>&amp;</code> 优先级高于 <code>&gt;</code>，不加括号相当于 <code>df['A'] &gt; (10 &amp; df['B']) &lt; 5</code>（语义错误）</li>
+<li>pandas 要求逻辑运算必须显式加括号</li>
+</ul>
+</details>
+<hr>
+<h4>七、关联概念（已入知识库）</h4>
+<ul>
+<li><span class="wikilink">concepts/groupby-aggregation</span>（1.1.1 已学）</li>
+<li><span class="wikilink">concepts/fillna-method</span>（新增）</li>
+<li><span class="wikilink">concepts/isin-filter</span>（新增）</li>
+<li><span class="wikilink">concepts/boolean-column-assignment</span>（新增）</li>
+<li><span class="wikilink">concepts/to-csv</span>（新增）</li>
+</ul></div>
+<section class="concepts"><h2>知识点卡片</h2><section class="concept-card"><h3>boolean-column-assignment</h3><div class="content"><h3>boolean-column-assignment（布尔列赋值 / 异常值标记）</h3>
+<ul>
+<li><strong>来源章节</strong>: 1.1.2</li>
+<li><strong>定义</strong>: 用布尔表达式创建新列，每行是 True/False，用于标记异常值、分类等</li>
+<li><strong>用法</strong>:</li>
+<pre><code>  # 单条件标记
+  df[&#x27;Anomaly&#x27;] = df[&#x27;Value&#x27;] &gt; 50
+  
+  # 多条件标记（温度 &gt; 50 或湿度 &gt; 100）
+  df[&#x27;Anomaly&#x27;] = ((df[&#x27;SensorType&#x27;] == &#x27;Temperature&#x27;) &amp; (df[&#x27;Value&#x27;] &gt; 50)) | \
+                  ((df[&#x27;SensorType&#x27;] == &#x27;Humidity&#x27;) &amp; (df[&#x27;Value&#x27;] &gt; 100))
+  
+  # 统计异常数量
+  df[&#x27;Anomaly&#x27;].sum()   # True=1、False=0，求和 = 异常行数</code></pre>
+<li><strong>⚠️ 易错点（考点）</strong>:</li>
+<li>复杂条件<strong>必须加括号</strong>，因为 <code>&amp;</code> / <code>|</code> 优先级高于 <code>==</code> / <code>&gt;</code></li>
+<li>❌ <code>df['A'] &gt; 10 &amp; df['B'] &lt; 5</code> 逻辑错误</li>
+<li>✅ <code>(df['A'] &gt; 10) &amp; (df['B'] &lt; 5)</code> 正确</li>
+<li><strong>关联</strong>: <span class="wikilink">boolean-indexing</span> · <span class="wikilink">boolean-mean-ratio</span></li>
+</ul></div></section><section class="concept-card"><h3>fillna-method</h3><div class="content"><h3>fillna-method（缺失值填充）</h3>
+<ul>
+<li><strong>来源章节</strong>: 1.1.2</li>
+<li><strong>定义</strong>: 用前面或后面的值填充 NaN（缺失值），而非固定值</li>
+<li><strong>用法</strong>:</li>
+<pre><code>  df[&#x27;Value&#x27;].fillna(method=&#x27;ffill&#x27;)   # 前向填充（用前面的值）
+  df[&#x27;Value&#x27;].fillna(method=&#x27;bfill&#x27;)   # 后向填充（用后面的值）
+  # 链式调用（考试常用）：
+  df[&#x27;Value&#x27;].fillna(method=&#x27;ffill&#x27;).fillna(method=&#x27;bfill&#x27;)</code></pre>
+<li><strong>参数</strong>: <code>method='ffill'</code>（前向，别名 <code>'pad'</code>）/ <code>method='bfill'</code>（后向，别名 <code>'backfill'</code>）</li>
+<li><strong>⚠️ 易错点</strong>:</li>
+<li><code>ffill</code> 无法填充第一行的 NaN（前面没有值）</li>
+<li><code>bfill</code> 无法填充最后一行的 NaN（后面没有值）</li>
+<li>链式调用可以覆盖首尾：先 ffill 填中间，再 bfill 补首尾</li>
+<li><strong>关联</strong>: <span class="wikilink">isin-filter</span> · <span class="wikilink">to-csv</span></li>
+</ul></div></section><section class="concept-card"><h3>isin-filter</h3><div class="content"><h3>isin-filter（多值筛选）</h3>
+<ul>
+<li><strong>来源章节</strong>: 1.1.2</li>
+<li><strong>定义</strong>: 筛选某列的值在指定列表里的行 —— 比多个 <code>==</code> 或条件简洁</li>
+<li><strong>用法</strong>:</li>
+<pre><code>  df[df[&#x27;SensorType&#x27;].isin([&#x27;Temperature&#x27;, &#x27;Humidity&#x27;])]
+  # 等价于（但更简洁）：
+  df[(df[&#x27;SensorType&#x27;] == &#x27;Temperature&#x27;) | (df[&#x27;SensorType&#x27;] == &#x27;Humidity&#x27;)]</code></pre>
+<li><strong>参数</strong>: <code>.isin([列表])</code> —— 必须是列表，不能直接传多个参数</li>
+<li><strong>⚠️ 易错点</strong>:</li>
+<li>❌ <code>.isin('A', 'B')</code> 语法错误（isin 只接受一个参数）</li>
+<li>✅ <code>.isin(['A', 'B'])</code> 必须用列表包裹</li>
+<li><strong>关联</strong>: <span class="wikilink">boolean-indexing</span> · <span class="wikilink">groupby-aggregation</span></li>
+</ul></div></section><section class="concept-card"><h3>to-csv</h3><div class="content"><h3>to-csv（保存 CSV）</h3>
+<ul>
+<li><strong>来源章节</strong>: 1.1.2</li>
+<li><strong>定义</strong>: 把 DataFrame 保存为 CSV 文件</li>
+<li><strong>用法</strong>:</li>
+<pre><code>  df.to_csv(&#x27;cleaned_sensor_data.csv&#x27;, index=False)</code></pre>
+<li><strong>参数</strong>:</li>
+<li>第一个参数：文件名（字符串），相对路径保存在工作目录</li>
+<li><code>index=False</code>：<strong>考试必加</strong>，不保存行号列（否则 CSV 第一列是 0,1,2...）</li>
+<li><strong>⚠️ 易错点</strong>:</li>
+<li>忘记 <code>index=False</code> 会多一列行号，导致后续读取时列数不匹配</li>
+<li>文件名要加引号（字符串）</li>
+<li><strong>关联</strong>: <span class="wikilink">pandas-read-csv</span> · <span class="wikilink">fillna-method</span></li>
+</ul></div></section></section>
+</body>
+</html>
