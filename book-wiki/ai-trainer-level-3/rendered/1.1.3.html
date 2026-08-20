@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>1.1.3 金融机构信用评估系统中的业务数据审核流程设计</title>
+<style>
+:root { --bg:#fff; --fg:#1a1a1a; --line:#e5e5e5; --muted:#737373; --accent:#2563eb; --chip:#f5f5f5; }
+@media (prefers-color-scheme:dark) { :root:not([data-theme="light"]) { --bg:#0a0a0a; --fg:#ededed; --line:#262626; --muted:#a3a3a3; --accent:#60a5fa; --chip:#1a1a1a; } }
+:root[data-theme="dark"] { --bg:#0a0a0a; --fg:#ededed; --line:#262626; --muted:#a3a3a3; --accent:#60a5fa; --chip:#1a1a1a; }
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:var(--bg); color:var(--fg); font-family:system-ui,-apple-system,sans-serif; line-height:1.6; padding:20px; max-width:900px; margin:0 auto; }
+h1 { font-size:24px; margin:0 0 20px; padding-bottom:10px; border-bottom:2px solid var(--line); }
+h2 { font-size:20px; margin:24px 0 12px; color:var(--accent); }
+h3 { font-size:17px; margin:16px 0 8px; }
+h4 { font-size:15px; margin:12px 0 6px; }
+h5 { font-size:14px; margin:10px 0 4px; }
+p { margin:8px 0; }
+ul { margin:8px 0 8px 24px; }
+li { margin:3px 0; }
+pre { background:var(--chip); border:1px solid var(--line); border-radius:8px; padding:12px; overflow-x:auto; margin:12px 0; }
+code { font-family:Consolas,Monaco,monospace; font-size:13px; }
+p code { background:var(--chip); padding:2px 6px; border-radius:4px; }
+table { border-collapse:collapse; margin:12px 0; font-size:14px; width:100%; }
+th, td { border:1px solid var(--line); padding:6px 12px; text-align:left; }
+th { background:var(--chip); font-weight:600; }
+blockquote { border-left:4px solid var(--accent); margin:12px 0; padding:4px 14px; color:var(--muted); background:var(--chip); }
+hr { border:none; border-top:1px solid var(--line); margin:20px 0; }
+details summary { cursor:pointer; color:var(--accent); font-weight:500; user-select:none; }
+.wikilink { color:var(--accent); }
+.concepts { margin-top:40px; padding-top:20px; border-top:2px solid var(--line); }
+.concept-card { border:1px solid var(--line); border-radius:8px; padding:16px; margin:16px 0; background:var(--chip); }
+.concept-card h3 { margin-top:0; color:#9333ea; }
+.content > *:first-child { margin-top:0; }
+.content > *:last-child { margin-bottom:0; }
+</style>
+</head>
+<body>
+<h1>1.1.3 金融机构信用评估系统中的业务数据审核流程设计</h1>
+<div class="lecture-body"><h3>1.1.3 讲义：金融机构信用评估系统中的业务数据审核流程设计</h3>
+<ul>
+<li><strong>日期</strong>: 2026-08-20</li>
+<li><strong>状态</strong>: 待学习</li>
+<li><strong>数据</strong>: <code>credit_data.csv</code>（100 行 × 9 列：CustomerID / Name / Age / Income / LoanAmount / LoanTerm / CreditScore / Default / TransactionHistory）</li>
+<li><strong>考核时间</strong>: 30 分钟，机考</li>
+</ul>
+<hr>
+<h4>一、任务解读（1.1.1/1.1.2 的知识 + 新增数据审核操作）</h4>
+<h5>复用前两单元知识</h5>
+<table class='md'><thead><tr>
+<th>已学操作</th><th>1.1.3 复用场景</th>
+</tr></thead><tbody>
+<tr><td><code>isnull().sum()</code></td><td>任务①：检测缺失值</td></tr>
+<tr><td><code>duplicated().sum()</code></td><td>任务①：检测重复记录</td></tr>
+<tr><td>布尔索引筛选</td><td>任务②③：标记和过滤不合理数据</td></tr>
+<tr><td><code>.to_csv()</code></td><td>任务③：保存清洗后数据</td></tr>
+</tbody></table>
+<h5>新增知识点（本单元重点）</h5>
+<table class='md'><thead><tr>
+<th>新操作</th><th>对应任务</th><th>中文 → pandas</th>
+</tr></thead><tbody>
+<tr><td><strong>范围合理性验证</strong></td><td>任务②</td><td><code>.between(18, 70)</code> 检查数值是否在区间内</td></tr>
+<tr><td><strong>多字段关联验证</strong></td><td>任务②</td><td><code>df['A'] &lt; df['B'] * 5</code> 跨列比较</td></tr>
+<tr><td><strong>布尔取反筛选</strong></td><td>任务③</td><td><code>~df['is_valid']</code> 找出不合理数据</td></tr>
+<tr><td><strong>删除临时列</strong></td><td>任务③</td><td><code>.drop(columns=[...])</code> 清理标记列</td></tr>
+</tbody></table>
+<hr>
+<h4>二、任务拆解</h4>
+<h5>任务①：数据完整性审核</h5>
+<p><strong>中文要求</strong>：检查缺失值和重复值</p>
+<p><strong>翻译成 pandas</strong>：</p>
+<pre><code># 缺失值统计：每列有多少个 NaN
+missing_values = data.isnull().sum()
+
+# 重复值统计：有多少行完全重复
+duplicate_values = data.duplicated().sum()</code></pre>
+<p><strong>知识点</strong>：</p>
+<ul>
+<li><code>.isnull()</code> 返回布尔表（每个单元格是 True/False）</li>
+<li><code>.sum()</code> 统计 True 的数量（True=1, False=0）</li>
+<li><code>.duplicated()</code> 标记重复行（第一次出现是 False，后续重复是 True）</li>
+</ul>
+<hr>
+<h5>任务②：数据合理性审核（本单元核心）</h5>
+<p><strong>中文要求</strong>：</p>
+<ul>
+<li>年龄应在 18 到 70 岁之间</li>
+<li>收入应大于 2000</li>
+<li>贷款金额应小于收入的 5 倍</li>
+<li>信用评分应在 300 到 850 之间</li>
+</ul>
+<p><strong>翻译成 pandas</strong>：</p>
+<pre><code># 年龄合理性（新方法：between）
+data[&#x27;is_age_valid&#x27;] = data[&#x27;Age&#x27;].between(18, 70)
+
+# 收入合理性（简单比较）
+data[&#x27;is_income_valid&#x27;] = data[&#x27;Income&#x27;] &gt; 2000
+
+# 贷款金额合理性（跨列比较）
+data[&#x27;is_loan_amount_valid&#x27;] = data[&#x27;LoanAmount&#x27;] &lt; (data[&#x27;Income&#x27;] * 5)
+
+# 信用评分合理性（between）
+data[&#x27;is_credit_score_valid&#x27;] = data[&#x27;CreditScore&#x27;].between(300, 850)
+
+# 综合判断：四个条件都满足才算合理
+data[&#x27;is_valid&#x27;] = data[[&#x27;is_age_valid&#x27;, &#x27;is_income_valid&#x27;, 
+                          &#x27;is_loan_amount_valid&#x27;, &#x27;is_credit_score_valid&#x27;]].all(axis=1)</code></pre>
+<p><strong>新知识点</strong>：</p>
+<ul>
+<li><code>.between(a, b)</code> 等价于 <code>(df['col'] &gt;= a) &amp; (df['col'] &lt;= b)</code>，但更简洁</li>
+<li><code>.all(axis=1)</code> 检查每行是否全为 True（axis=1 表示横向比较）</li>
+</ul>
+<hr>
+<h5>任务③：数据清洗和异常值处理</h5>
+<p><strong>中文要求</strong>：</p>
+<p>1. 删除不合理的数据行</p>
+<p>2. 删除标记列</p>
+<p>3. 保存为 <code>cleaned_credit_data.csv</code></p>
+<p><strong>翻译成 pandas</strong>：</p>
+<pre><code># 1. 筛选合理数据（保留 is_valid=True 的行）
+cleaned_data = data[data[&#x27;is_valid&#x27;]]
+
+# 2. 删除临时标记列
+cleaned_data = cleaned_data.drop(columns=[&#x27;is_age_valid&#x27;, &#x27;is_income_valid&#x27;, 
+                                           &#x27;is_loan_amount_valid&#x27;, &#x27;is_credit_score_valid&#x27;, &#x27;is_valid&#x27;])
+
+# 3. 保存清洗后的数据
+cleaned_data.to_csv(&#x27;cleaned_credit_data.csv&#x27;, index=False)</code></pre>
+<p><strong>新知识点</strong>：</p>
+<ul>
+<li><code>~布尔列</code> 取反（<code>~data['is_valid']</code> = 找出不合理的数据）</li>
+<li><code>.drop(columns=[列表])</code> 删除指定列</li>
+<li>清洗流程：标记 → 筛选 → 删除标记 → 保存</li>
+</ul>
+<hr>
+<h4>三、新知识点详解</h4>
+<h5>① <code>.between()</code> —— 区间合理性检查</h5>
+<pre><code># 笨办法（写两次比较）
+(data[&#x27;Age&#x27;] &gt;= 18) &amp; (data[&#x27;Age&#x27;] &lt;= 70)
+
+# 简洁写法
+data[&#x27;Age&#x27;].between(18, 70)</code></pre>
+<p><strong>注意事项</strong>：</p>
+<ul>
+<li><strong>默认包含边界</strong>：<code>between(18, 70)</code> 等价于 <code>18 ≤ Age ≤ 70</code></li>
+<li>如需开区间：<code>between(18, 70, inclusive='neither')</code> → <code>18 &lt; Age &lt; 70</code></li>
+<li>如需左开右闭：<code>between(18, 70, inclusive='right')</code> → <code>18 &lt; Age ≤ 70</code></li>
+</ul>
+<p><strong>考试默认</strong>：题目说「18 到 70 岁之间」通常指闭区间，直接用 <code>.between(18, 70)</code> 即可。</p>
+<hr>
+<h5>② 跨列比较 —— 关联字段验证</h5>
+<pre><code># 贷款金额应小于收入的 5 倍
+data[&#x27;LoanAmount&#x27;] &lt; (data[&#x27;Income&#x27;] * 5)</code></pre>
+<p><strong>原理</strong>：pandas 列运算是逐行计算的</p>
+<ul>
+<li><code>data['Income'] * 5</code>：每行的收入乘以 5，返回新列</li>
+<li><code>data['LoanAmount'] &lt; ...</code>：逐行比较，返回布尔列</li>
+</ul>
+<p><strong>常见关联验证</strong>：</p>
+<pre><code># 收入应大于支出
+data[&#x27;Income&#x27;] &gt; data[&#x27;Expense&#x27;]
+
+# 总价应等于单价×数量
+data[&#x27;Total&#x27;] == data[&#x27;Price&#x27;] * data[&#x27;Quantity&#x27;]
+
+# 年龄应大于注册时长
+data[&#x27;Age&#x27;] &gt; data[&#x27;MemberYears&#x27;]</code></pre>
+<hr>
+<h5>③ <code>.all(axis=1)</code> —— 多条件综合判断</h5>
+<pre><code># 四个条件列
+validity_checks = data[[&#x27;is_age_valid&#x27;, &#x27;is_income_valid&#x27;, 
+                        &#x27;is_loan_amount_valid&#x27;, &#x27;is_credit_score_valid&#x27;]]
+
+# 每行全为 True 才返回 True
+data[&#x27;is_valid&#x27;] = validity_checks.all(axis=1)</code></pre>
+<p><strong>参数对照</strong>：</p>
+<table class='md'><thead><tr>
+<th>axis 参数</th><th>比较方向</th><th>含义</th>
+</tr></thead><tbody>
+<tr><td><code>axis=1</code></td><td>横向（每行）</td><td>该行所有值都是 True 才返回 True</td></tr>
+<tr><td><code>axis=0</code></td><td>纵向（每列）</td><td>该列所有值都是 True 才返回 True</td></tr>
+</tbody></table>
+<p><strong>等价写法</strong>（考试更常见）：</p>
+<pre><code>data[&#x27;is_valid&#x27;] = (data[&#x27;is_age_valid&#x27;]) &amp; (data[&#x27;is_income_valid&#x27;]) &amp; \
+                   (data[&#x27;is_loan_amount_valid&#x27;]) &amp; (data[&#x27;is_credit_score_valid&#x27;])</code></pre>
+<hr>
+<h5>④ 布尔取反 <code>~</code> —— 找出不合理数据</h5>
+<pre><code># 找出合理数据
+valid_data = data[data[&#x27;is_valid&#x27;]]
+
+# 找出不合理数据（取反）
+invalid_data = data[~data[&#x27;is_valid&#x27;]]</code></pre>
+<p><strong>原理</strong>：<code>~</code> 是按位取反运算符，对布尔列每个值取反</p>
+<ul>
+<li>True → False</li>
+<li>False → True</li>
+</ul>
+<p><strong>常见用法</strong>：</p>
+<pre><code># 不在列表中
+data[~data[&#x27;City&#x27;].isin([&#x27;北京&#x27;, &#x27;上海&#x27;])]
+
+# 没有缺失值的行
+data[~data[&#x27;Age&#x27;].isnull()]
+
+# 不重复的行（保留所有首次出现）
+data[~data.duplicated()]</code></pre>
+<hr>
+<h5>⑤ <code>.drop(columns=[...])</code> —— 删除列</h5>
+<pre><code># 删除单列
+data.drop(columns=[&#x27;is_valid&#x27;])
+
+# 删除多列
+data.drop(columns=[&#x27;is_age_valid&#x27;, &#x27;is_income_valid&#x27;, &#x27;is_loan_amount_valid&#x27;])</code></pre>
+<p><strong>注意事项</strong>：</p>
+<ul>
+<li><strong>参数名必须是 <code>columns=</code></strong>（不能写成 <code>drop(['列名'])</code>，那是删除行的语法）</li>
+<li>默认返回新 DataFrame，原数据不变</li>
+<li>如需就地修改：<code>data.drop(columns=[...], inplace=True)</code>（考试不推荐，容易丢数据）</li>
+</ul>
+<hr>
+<h4>四、完整解题流程演示</h4>
+<pre><code>import pandas as pd
+
+# 读取数据集
+data = pd.read_csv(&#x27;credit_data.csv&#x27;)
+
+# 任务①：数据完整性审核
+missing_values = data.isnull().sum()
+duplicate_values = data.duplicated().sum()
+print(&quot;缺失值统计:&quot;)
+print(missing_values)
+print(&quot;重复值统计:&quot;)
+print(duplicate_values)
+# 输出：
+# CustomerID         0
+# Name               0
+# Age                5    ← 有 5 个缺失值
+# Income             0
+# ...
+# 重复值统计: 0
+
+# 任务②：数据合理性审核
+data[&#x27;is_age_valid&#x27;] = data[&#x27;Age&#x27;].between(18, 70)
+data[&#x27;is_income_valid&#x27;] = data[&#x27;Income&#x27;] &gt; 2000
+data[&#x27;is_loan_amount_valid&#x27;] = data[&#x27;LoanAmount&#x27;] &lt; (data[&#x27;Income&#x27;] * 5)
+data[&#x27;is_credit_score_valid&#x27;] = data[&#x27;CreditScore&#x27;].between(300, 850)
+
+# 综合判断
+data[&#x27;is_valid&#x27;] = data[[&#x27;is_age_valid&#x27;, &#x27;is_income_valid&#x27;, 
+                          &#x27;is_loan_amount_valid&#x27;, &#x27;is_credit_score_valid&#x27;]].all(axis=1)
+
+print(&quot;数据合理性检查:&quot;)
+print(data[[&#x27;is_age_valid&#x27;, &#x27;is_income_valid&#x27;, &#x27;is_loan_amount_valid&#x27;, 
+            &#x27;is_credit_score_valid&#x27;, &#x27;is_valid&#x27;]].describe())
+
+# 任务③：数据清洗
+# 删除不合理数据行
+cleaned_data = data[data[&#x27;is_valid&#x27;]]
+
+# 删除标记列
+cleaned_data = cleaned_data.drop(columns=[&#x27;is_age_valid&#x27;, &#x27;is_income_valid&#x27;, 
+                                           &#x27;is_loan_amount_valid&#x27;, &#x27;is_credit_score_valid&#x27;, &#x27;is_valid&#x27;])
+
+# 保存清洗后的数据
+cleaned_data.to_csv(&#x27;cleaned_credit_data.csv&#x27;, index=False)
+print(&quot;数据清洗完成，已保存为 &#x27;cleaned_credit_data.csv&#x27;&quot;)</code></pre>
+<hr>
+<h4>五、易错点（考试陷阱）</h4>
+<h5>⚠️ 陷阱 1：<code>.between()</code> 忘记赋值到新列</h5>
+<pre><code># ❌ 错误（只计算不保存）
+data[&#x27;Age&#x27;].between(18, 70)    # 计算完就丢了
+
+# ✅ 正确
+data[&#x27;is_age_valid&#x27;] = data[&#x27;Age&#x27;].between(18, 70)</code></pre>
+<hr>
+<h5>⚠️ 陷阱 2：跨列比较括号丢失</h5>
+<pre><code># ❌ 错误（运算符优先级错误）
+data[&#x27;LoanAmount&#x27;] &lt; data[&#x27;Income&#x27;] * 5
+# 相当于 (data[&#x27;LoanAmount&#x27;] &lt; data[&#x27;Income&#x27;]) * 5，逻辑错误
+
+# ✅ 正确
+data[&#x27;LoanAmount&#x27;] &lt; (data[&#x27;Income&#x27;] * 5)</code></pre>
+<hr>
+<h5>⚠️ 陷阱 3：<code>.drop()</code> 参数错误</h5>
+<pre><code># ❌ 错误（缺少 columns= 参数）
+data.drop([&#x27;is_valid&#x27;])    # 这是删除行号为 &#x27;is_valid&#x27; 的行，不是删除列
+
+# ✅ 正确
+data.drop(columns=[&#x27;is_valid&#x27;])</code></pre>
+<hr>
+<h5>⚠️ 陷阱 4：缺失值导致 <code>.between()</code> 返回 NaN</h5>
+<pre><code># 如果 Age 列有缺失值（NaN）
+data[&#x27;Age&#x27;].between(18, 70)
+# 结果：[True, True, NaN, False, ...]  ← NaN 位置返回 NaN，不是 False
+
+# 解决方法：填充缺失值或单独处理
+data[&#x27;is_age_valid&#x27;] = data[&#x27;Age&#x27;].between(18, 70).fillna(False)
+# 或者
+data[&#x27;is_age_valid&#x27;] = data[&#x27;Age&#x27;].between(18, 70) &amp; data[&#x27;Age&#x27;].notnull()</code></pre>
+<p><strong>本题数据特点</strong>：Age 有缺失值，<code>.between()</code> 会返回 NaN，最终 <code>.all(axis=1)</code> 会把 NaN 视为 False，所以有缺失值的行会被标记为不合理（符合业务逻辑）。</p>
+<hr>
+<h4>六、自测题</h4>
+<p>1. <code>.between(18, 70)</code> 和 <code>(df['Age'] &gt;= 18) &amp; (df['Age'] &lt;= 70)</code> 完全等价吗？遇到 NaN 时结果有什么区别？</p>
+<p>2. 为什么要先筛选 <code>data[data['is_valid']]</code> 再删除标记列，而不是先删除列再筛选？</p>
+<p>3. <code>~data['is_valid']</code> 和 <code>data['is_valid'] == False</code> 的结果相同吗？遇到 NaN 时有什么区别？</p>
+<details>
+<summary>参考答案（先自测再看）</summary>
+<p>1. <strong>遇到 NaN 时行为不同</strong>：</p>
+<ul>
+<li><code>.between(18, 70)</code> 遇到 NaN 返回 NaN</li>
+<li><code>(df['Age'] &gt;= 18) &amp; (df['Age'] &lt;= 70)</code> 遇到 NaN 返回 False</li>
+<li>本题中差异不大，因为 <code>.all(axis=1)</code> 会把 NaN 视为 False</li>
+</ul>
+<p>2. <strong>顺序很重要</strong>：</p>
+<ul>
+<li>先筛选：基于 <code>is_valid</code> 列判断哪些行保留</li>
+<li>再删除：标记列已完成使命，删除避免污染最终数据</li>
+<li>如果先删除 <code>is_valid</code> 列，就无法筛选了</li>
+</ul>
+<p>3. <strong>遇到 NaN 时不同</strong>：</p>
+<ul>
+<li><code>~data['is_valid']</code>：True → False，False → True，<strong>NaN → NaN</strong></li>
+<li><code>data['is_valid'] == False</code>：True → False，False → True，<strong>NaN → False</strong></li>
+<li>如果数据有缺失值导致 <code>is_valid</code> 为 NaN，两种写法会产生不同结果</li>
+</ul>
+</details>
+<hr>
+<h4>七、关联概念（已入知识库）</h4>
+<ul>
+<li><span class="wikilink">concepts/isnull-sum</span>（缺失值检测）</li>
+<li><span class="wikilink">concepts/duplicated-sum</span>（重复值检测）</li>
+<li><span class="wikilink">concepts/between-range-check</span>（区间验证）</li>
+<li><span class="wikilink">concepts/cross-column-comparison</span>（跨列比较）</li>
+<li><span class="wikilink">concepts/boolean-not-operator</span>（布尔取反）</li>
+<li><span class="wikilink">concepts/drop-columns</span>（1.1.2 已学）</li>
+<li><span class="wikilink">concepts/to-csv</span>（1.1.2 已学）</li>
+</ul></div>
+
+</body>
+</html>

@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>1.1.5 智能交通系统的数据采集、处理和审核流程设计</title>
+<style>
+:root { --bg:#fff; --fg:#1a1a1a; --line:#e5e5e5; --muted:#737373; --accent:#2563eb; --chip:#f5f5f5; }
+@media (prefers-color-scheme:dark) { :root:not([data-theme="light"]) { --bg:#0a0a0a; --fg:#ededed; --line:#262626; --muted:#a3a3a3; --accent:#60a5fa; --chip:#1a1a1a; } }
+:root[data-theme="dark"] { --bg:#0a0a0a; --fg:#ededed; --line:#262626; --muted:#a3a3a3; --accent:#60a5fa; --chip:#1a1a1a; }
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:var(--bg); color:var(--fg); font-family:system-ui,-apple-system,sans-serif; line-height:1.6; padding:20px; max-width:900px; margin:0 auto; }
+h1 { font-size:24px; margin:0 0 20px; padding-bottom:10px; border-bottom:2px solid var(--line); }
+h2 { font-size:20px; margin:24px 0 12px; color:var(--accent); }
+h3 { font-size:17px; margin:16px 0 8px; }
+h4 { font-size:15px; margin:12px 0 6px; }
+h5 { font-size:14px; margin:10px 0 4px; }
+p { margin:8px 0; }
+ul { margin:8px 0 8px 24px; }
+li { margin:3px 0; }
+pre { background:var(--chip); border:1px solid var(--line); border-radius:8px; padding:12px; overflow-x:auto; margin:12px 0; }
+code { font-family:Consolas,Monaco,monospace; font-size:13px; }
+p code { background:var(--chip); padding:2px 6px; border-radius:4px; }
+table { border-collapse:collapse; margin:12px 0; font-size:14px; width:100%; }
+th, td { border:1px solid var(--line); padding:6px 12px; text-align:left; }
+th { background:var(--chip); font-weight:600; }
+blockquote { border-left:4px solid var(--accent); margin:12px 0; padding:4px 14px; color:var(--muted); background:var(--chip); }
+hr { border:none; border-top:1px solid var(--line); margin:20px 0; }
+details summary { cursor:pointer; color:var(--accent); font-weight:500; user-select:none; }
+.wikilink { color:var(--accent); }
+.concepts { margin-top:40px; padding-top:20px; border-top:2px solid var(--line); }
+.concept-card { border:1px solid var(--line); border-radius:8px; padding:16px; margin:16px 0; background:var(--chip); }
+.concept-card h3 { margin-top:0; color:#9333ea; }
+.content > *:first-child { margin-top:0; }
+.content > *:last-child { margin-bottom:0; }
+</style>
+</head>
+<body>
+<h1>1.1.5 智能交通系统的数据采集、处理和审核流程设计</h1>
+<div class="lecture-body"><h3>1.1.5 讲义：智能交通系统的数据采集、处理和审核流程设计</h3>
+<ul>
+<li><strong>日期</strong>: 2026-08-20</li>
+<li><strong>状态</strong>: 待讲解 → 待自测 → 待做题（ipynb）</li>
+<li><strong>数据</strong>: <code>vehicle_traffic_data.csv</code>（车辆行驶数据：VehicleID / DriverName / Age / Gender / Speed / TravelDistance / TravelTime / TrafficEvent）</li>
+<li><strong>考核时间</strong>: 30 分钟，机考</li>
+</ul>
+<hr>
+<h4>一、任务解读（数据全流程：采集 → 清洗 → 审核 → 统计）</h4>
+<h5>本单元特点：完整数据工程流程</h5>
+<table class='md'><thead><tr>
+<th>1.1.1</th><th>1.1.2</th><th><strong>1.1.5（本单元）</strong></th>
+</tr></thead><tbody>
+<tr><td>读取 + 分组统计</td><td>+ 缺失值填充 + 异常标记</td><td><strong>完整业务流程：采集 → 类型转换 → 范围验证 → 审核 → 保存</strong></td></tr>
+</tbody></table>
+<p><strong>核心思维</strong>：真实业务场景的数据处理有<strong>严格流程</strong>，不是拿来就算——必须先清洗、验证合理性，确保数据质量，才能进入分析阶段。</p>
+<hr>
+<h4>二、任务拆解（五步流程）</h4>
+<h5>步骤①：数据采集</h5>
+<p><strong>中文要求</strong>：从 <code>vehicle_traffic_data.csv</code> 读取数据并显示前 5 行</p>
+<p><strong>翻译成 pandas</strong>：</p>
+<pre><code>data = pd.read_csv(&#x27;vehicle_traffic_data.csv&#x27;)
+print(data.head())  # 截图保存为 1.1.5-1.jpg</code></pre>
+<p><strong>知识点</strong>：<span class="wikilink">concepts/pandas-read-csv</span>（复用 1.1.1）</p>
+<hr>
+<h5>步骤②：数据清洗与预处理（核心）</h5>
+<p><strong>中文要求</strong>：</p>
+<p>1. 删除缺失值</p>
+<p>2. 转换数据类型（Age → int，Speed/TravelDistance/TravelTime → float）</p>
+<p>3. 删除异常值（年龄 18-70 / 车速 0-200 / 行驶距离 1-1000 / 行驶时间 1-1440）</p>
+<p>4. 保存清洗后的数据</p>
+<p><strong>翻译成 pandas</strong>：</p>
+<pre><code># 1. 删除缺失值
+data = data.dropna()
+
+# 2. 数据类型转换
+data[&#x27;Age&#x27;] = data[&#x27;Age&#x27;].astype(int)
+data[&#x27;Speed&#x27;] = data[&#x27;Speed&#x27;].astype(float)
+data[&#x27;TravelDistance&#x27;] = data[&#x27;TravelDistance&#x27;].astype(float)
+data[&#x27;TravelTime&#x27;] = data[&#x27;TravelTime&#x27;].astype(float)
+
+# 3. 删除异常值（多条件筛选）
+data = data[(data[&#x27;Age&#x27;].between(18, 70)) &amp; 
+            (data[&#x27;Speed&#x27;].between(0, 200)) &amp; 
+            (data[&#x27;TravelDistance&#x27;].between(1, 1000)) &amp; 
+            (data[&#x27;TravelTime&#x27;].between(1, 1440))]
+
+# 4. 保存清洗后的数据
+data.to_csv(&#x27;cleaned_vehicle_traffic_data.csv&#x27;, index=False)</code></pre>
+<p><strong>新知识点</strong>：</p>
+<ul>
+<li><span class="wikilink">concepts/dropna</span>：删除缺失值</li>
+<li><span class="wikilink">concepts/astype</span>：数据类型转换</li>
+<li><span class="wikilink">concepts/between</span>：范围验证（新增，本单元重点）</li>
+<li><span class="wikilink">concepts/to-csv</span>：保存 CSV（复用 1.1.2）</li>
+</ul>
+<hr>
+<h5>步骤③：数据合理性审核</h5>
+<p><strong>中文要求</strong>：标记不合理的数据（不在合理范围内的记录）</p>
+<p><strong>翻译成 pandas</strong>：</p>
+<pre><code># 找出不合理的数据（取反：不在范围内）
+unreasonable_data = data[~((data[&#x27;Age&#x27;].between(18, 70)) &amp; 
+                           (data[&#x27;Speed&#x27;].between(0, 200)) &amp; 
+                           (data[&#x27;TravelDistance&#x27;].between(1, 1000)) &amp; 
+                           (data[&#x27;TravelTime&#x27;].between(1, 1440)))]
+print(unreasonable_data)  # 截图保存为 1.1.5-2.jpg</code></pre>
+<p><strong>知识点</strong>：<code>~</code> 取反符号，将「合理数据」条件反转为「不合理数据」</p>
+<hr>
+<h5>步骤④：数据统计分析（三项任务）</h5>
+<h6>任务 1：统计每种交通事件的发生次数</h6>
+<pre><code>traffic_event_counts = data[&#x27;TrafficEvent&#x27;].value_counts()
+print(traffic_event_counts)  # 截图保存为 1.1.5-3.jpg</code></pre>
+<p><strong>知识点</strong>：<span class="wikilink">concepts/value-counts</span>：统计分类字段的频次分布（新增）</p>
+<hr>
+<h6>任务 2：统计不同性别的平均车速、行驶距离和行驶时间</h6>
+<pre><code>gender_stats = data.groupby(&#x27;Gender&#x27;).mean()
+print(gender_stats)  # 截图保存为 1.1.5-4.jpg</code></pre>
+<p><strong>知识点</strong>：<span class="wikilink">concepts/groupby-aggregation</span>（复用 1.1.1）</p>
+<hr>
+<h6>任务 3：统计不同年龄段的驾驶员数</h6>
+<pre><code>age_bins = [18, 26, 36, 46, 56, 66, np.inf]
+age_labels = [&#x27;18-25&#x27;, &#x27;26-35&#x27;, &#x27;36-45&#x27;, &#x27;46-55&#x27;, &#x27;56-65&#x27;, &#x27;65+&#x27;]
+data[&#x27;AgeGroup&#x27;] = pd.cut(data[&#x27;Age&#x27;], bins=age_bins, labels=age_labels, right=False)
+age_group_counts = data[&#x27;AgeGroup&#x27;].value_counts()
+print(age_group_counts)  # 截图保存为 1.1.5-5.jpg</code></pre>
+<p><strong>知识点</strong>：<span class="wikilink">concepts/pd-cut-binning</span>（复用 1.1.1，但注意 <code>np.inf</code> 处理开放区间）</p>
+<hr>
+<h4>三、新知识点详解</h4>
+<h5>① <code>.dropna()</code> —— 删除缺失值</h5>
+<pre><code>data = data.dropna()</code></pre>
+<p><strong>作用</strong>：删除包含 <code>NaN</code>（缺失值）的所有行</p>
+<p><strong>对比 1.1.2 的 <code>.fillna()</code></strong>：</p>
+<ul>
+<li><code>fillna()</code>：填充缺失值（保留行，用其他值替代 NaN）</li>
+<li><code>dropna()</code>：删除缺失值（直接删除包含 NaN 的行）</li>
+</ul>
+<p><strong>选择原则</strong>：</p>
+<ul>
+<li>缺失值少 → <code>dropna()</code>（简单粗暴）</li>
+<li>缺失值多 → <code>fillna()</code>（避免丢失太多数据）</li>
+</ul>
+<hr>
+<h5>② <code>.astype()</code> —— 数据类型转换</h5>
+<pre><code>data[&#x27;Age&#x27;] = data[&#x27;Age&#x27;].astype(int)
+data[&#x27;Speed&#x27;] = data[&#x27;Speed&#x27;].astype(float)</code></pre>
+<p><strong>作用</strong>：将列的数据类型转换为指定类型</p>
+<p><strong>常见类型</strong>：</p>
+<table class='md'><thead><tr>
+<th>类型</th><th>用途</th><th>示例</th>
+</tr></thead><tbody>
+<tr><td><code>int</code></td><td>整数（年龄、数量）</td><td><code>data['Age'].astype(int)</code></td></tr>
+<tr><td><code>float</code></td><td>浮点数（速度、距离）</td><td><code>data['Speed'].astype(float)</code></td></tr>
+<tr><td><code>str</code></td><td>字符串（ID、名称）</td><td><code>data['VehicleID'].astype(str)</code></td></tr>
+</tbody></table>
+<p><strong>为什么要转换</strong>：CSV 读取时可能把数字识别为字符串，导致后续计算出错</p>
+<hr>
+<h5>③ <code>.between()</code> —— 范围验证（本单元核心）</h5>
+<pre><code>data[&#x27;Age&#x27;].between(18, 70)</code></pre>
+<p><strong>作用</strong>：检查每个值是否在指定范围内，返回布尔列</p>
+<p><strong>等价写法</strong>：</p>
+<pre><code># between 一行搞定
+data[&#x27;Age&#x27;].between(18, 70)
+
+# 传统写法（两次比较）
+(data[&#x27;Age&#x27;] &gt;= 18) &amp; (data[&#x27;Age&#x27;] &lt;= 70)</code></pre>
+<p><strong>默认行为</strong>：闭区间 <code>[18, 70]</code>（包含边界值）</p>
+<p><strong>开放区间</strong>：<code>between(18, 70, inclusive='neither')</code>（不包含边界）</p>
+<hr>
+<h5>④ 多条件筛选（复习 + 强化）</h5>
+<pre><code># 保留合理数据
+data = data[(条件1) &amp; (条件2) &amp; (条件3)]
+
+# 找出不合理数据（取反）
+unreasonable = data[~(条件1) &amp; (条件2)]</code></pre>
+<p><strong>运算符</strong>：</p>
+<table class='md'><thead><tr>
+<th>符号</th><th>含义</th><th>示例</th>
+</tr></thead><tbody>
+<tr><td><code>&amp;</code></td><td>与（且）</td><td><code>(条件1) &amp; (条件2)</code></td></tr>
+<tr><td>`\</td><td>`</td><td>或</td><td>`(条件1) \</td><td>(条件2)`</td></tr>
+<tr><td><code>~</code></td><td>非（取反）</td><td><code>~(条件)</code></td></tr>
+</tbody></table>
+<p><strong>⚠️ 注意</strong>：每个条件必须加括号，否则运算符优先级会导致错误</p>
+<hr>
+<h5>⑤ <code>.value_counts()</code> —— 频次统计</h5>
+<pre><code>data[&#x27;TrafficEvent&#x27;].value_counts()</code></pre>
+<p><strong>作用</strong>：统计分类字段每个值的出现次数</p>
+<p><strong>输出示例</strong>：</p>
+<pre><code>Normal         450
+Traffic Jam    230
+Accident       180
+Breakdown      140</code></pre>
+<p><strong>对比 <code>groupby().count()</code></strong>：</p>
+<ul>
+<li><code>value_counts()</code>：单列统计，自动排序</li>
+<li><code>groupby().count()</code>：多列统计，需指定分组列</li>
+</ul>
+<hr>
+<h4>四、完整解题流程演示</h4>
+<pre><code>import pandas as pd
+import numpy as np
+
+# 步骤①：数据采集
+data = pd.read_csv(&#x27;vehicle_traffic_data.csv&#x27;)
+print(data.head())  # 截图 1.1.5-1.jpg
+
+# 步骤②：数据清洗
+data = data.dropna()
+data[&#x27;Age&#x27;] = data[&#x27;Age&#x27;].astype(int)
+data[&#x27;Speed&#x27;] = data[&#x27;Speed&#x27;].astype(float)
+data[&#x27;TravelDistance&#x27;] = data[&#x27;TravelDistance&#x27;].astype(float)
+data[&#x27;TravelTime&#x27;] = data[&#x27;TravelTime&#x27;].astype(float)
+
+data = data[(data[&#x27;Age&#x27;].between(18, 70)) &amp; 
+            (data[&#x27;Speed&#x27;].between(0, 200)) &amp; 
+            (data[&#x27;TravelDistance&#x27;].between(1, 1000)) &amp; 
+            (data[&#x27;TravelTime&#x27;].between(1, 1440))]
+
+data.to_csv(&#x27;cleaned_vehicle_traffic_data.csv&#x27;, index=False)
+
+# 步骤③：数据审核
+unreasonable_data = data[~((data[&#x27;Age&#x27;].between(18, 70)) &amp; 
+                           (data[&#x27;Speed&#x27;].between(0, 200)) &amp; 
+                           (data[&#x27;TravelDistance&#x27;].between(1, 1000)) &amp; 
+                           (data[&#x27;TravelTime&#x27;].between(1, 1440)))]
+print(unreasonable_data)  # 截图 1.1.5-2.jpg
+
+# 步骤④：数据统计
+# 任务1：交通事件频次
+traffic_event_counts = data[&#x27;TrafficEvent&#x27;].value_counts()
+print(traffic_event_counts)  # 截图 1.1.5-3.jpg
+
+# 任务2：不同性别的平均值
+gender_stats = data.groupby(&#x27;Gender&#x27;).mean()
+print(gender_stats)  # 截图 1.1.5-4.jpg
+
+# 任务3：不同年龄段的驾驶员数
+age_bins = [18, 26, 36, 46, 56, 66, np.inf]
+age_labels = [&#x27;18-25&#x27;, &#x27;26-35&#x27;, &#x27;36-45&#x27;, &#x27;46-55&#x27;, &#x27;56-65&#x27;, &#x27;65+&#x27;]
+data[&#x27;AgeGroup&#x27;] = pd.cut(data[&#x27;Age&#x27;], bins=age_bins, labels=age_labels, right=False)
+age_group_counts = data[&#x27;AgeGroup&#x27;].value_counts()
+print(age_group_counts)  # 截图 1.1.5-5.jpg</code></pre>
+<hr>
+<h4>五、易错点（考试陷阱）</h4>
+<h5>⚠️ 陷阱 1：<code>.between()</code> 里忘记加括号</h5>
+<pre><code># ❌ 错误（运算符优先级导致逻辑错误）
+data = data[data[&#x27;Age&#x27;].between(18, 70) &amp; data[&#x27;Speed&#x27;].between(0, 200)]
+
+# ✅ 正确
+data = data[(data[&#x27;Age&#x27;].between(18, 70)) &amp; (data[&#x27;Speed&#x27;].between(0, 200))]</code></pre>
+<hr>
+<h5>⚠️ 陷阱 2：审核任务里忘记取反符号 <code>~</code></h5>
+<pre><code># ❌ 错误（找出的是合理数据，不是不合理数据）
+unreasonable = data[(data[&#x27;Age&#x27;].between(18, 70))]
+
+# ✅ 正确
+unreasonable = data[~((data[&#x27;Age&#x27;].between(18, 70)))]</code></pre>
+<p><strong>记忆技巧</strong>：审核任务要找「不合理」的数据 = 「不」满足条件 = <code>~</code>（取反）</p>
+<hr>
+<h5>⚠️ 陷阱 3：年龄分箱的开放区间处理</h5>
+<pre><code># 题目要求：65岁以上
+# ❌ 错误（bins 最后一个值写固定数字，会漏掉超出的数据）
+age_bins = [18, 26, 36, 46, 56, 66, 100]
+
+# ✅ 正确（用 np.inf 表示无穷大，包含所有大于 66 的值）
+age_bins = [18, 26, 36, 46, 56, 66, np.inf]</code></pre>
+<hr>
+<h5>⚠️ 陷阱 4：<code>.astype()</code> 转换前未清洗缺失值</h5>
+<pre><code># ❌ 错误（NaN 无法转换为 int，会报错）
+data[&#x27;Age&#x27;] = data[&#x27;Age&#x27;].astype(int)
+data = data.dropna()
+
+# ✅ 正确（先删除 NaN，再转换类型）
+data = data.dropna()
+data[&#x27;Age&#x27;] = data[&#x27;Age&#x27;].astype(int)</code></pre>
+<p><strong>原则</strong>：数据清洗顺序：<strong>先删除/填充缺失值 → 再转换类型</strong></p>
+<hr>
+<h4>六、自测题</h4>
+<p>1. <code>.between(18, 70)</code> 和 <code>(df['Age'] &gt;= 18) &amp; (df['Age'] &lt;= 70)</code> 的结果相同吗？哪个更简洁？</p>
+<p>2. 为什么步骤②里要先 <code>dropna()</code> 再 <code>.astype(int)</code>？顺序反了会怎样?</p>
+<p>3. 审核任务里的 <code>~</code> 符号是什么意思？为什么要用它？</p>
+<p>4. <code>pd.cut</code> 的 <code>bins=[18, 26, 36, ..., np.inf]</code> 里的 <code>np.inf</code> 有什么作用？能用 <code>1000</code> 代替吗？</p>
+<details>
+<summary>参考答案（先自测再看）</summary>
+<p>1. <strong>结果相同，<code>.between()</code> 更简洁</strong>：</p>
+<ul>
+<li>传统写法需要两次比较 + 一次 <code>&amp;</code></li>
+<li><code>.between()</code> 一个方法搞定，代码更易读</li>
+</ul>
+<p>2. <strong>先删缺失值，再转类型</strong>：</p>
+<ul>
+<li><code>NaN</code>（缺失值）无法转换为 <code>int</code> 类型，会报错 <code>ValueError</code></li>
+<li>必须先 <code>dropna()</code> 删除 NaN，再 <code>astype(int)</code> 转换</li>
+</ul>
+<p>3. <strong><code>~</code> 是取反符号（逻辑非）</strong>：</p>
+<ul>
+<li>审核任务要找「不合理」的数据</li>
+<li>原条件是「合理范围」，加 <code>~</code> 反转为「不在合理范围内」</li>
+</ul>
+<p>4. <strong><code>np.inf</code> 表示正无穷大</strong>：</p>
+<ul>
+<li>处理开放区间「65岁以上」（无上限）</li>
+<li>不能用 <code>1000</code> 代替：如果有 101 岁的数据，会被排除在外（导致数据丢失）</li>
+</ul>
+</details>
+<hr>
+<h4>七、关联概念（已入知识库）</h4>
+<ul>
+<li><span class="wikilink">concepts/pandas-read-csv</span>（1.1.1 复用）</li>
+<li><span class="wikilink">concepts/dropna</span>（新增）</li>
+<li><span class="wikilink">concepts/astype</span>（新增）</li>
+<li><span class="wikilink">concepts/between</span>（新增，本单元核心）</li>
+<li><span class="wikilink">concepts/value-counts</span>（新增）</li>
+<li><span class="wikilink">concepts/groupby-aggregation</span>（1.1.1 复用）</li>
+<li><span class="wikilink">concepts/pd-cut-binning</span>（1.1.1 复用）</li>
+<li><span class="wikilink">concepts/to-csv</span>（1.1.2 复用）</li>
+</ul></div>
+
+</body>
+</html>

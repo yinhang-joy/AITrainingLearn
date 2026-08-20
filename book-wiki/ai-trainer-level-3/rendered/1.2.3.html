@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>1.2.3 智慧金融服务业务模块效果优化</title>
+<style>
+:root { --bg:#fff; --fg:#1a1a1a; --line:#e5e5e5; --muted:#737373; --accent:#2563eb; --chip:#f5f5f5; }
+@media (prefers-color-scheme:dark) { :root:not([data-theme="light"]) { --bg:#0a0a0a; --fg:#ededed; --line:#262626; --muted:#a3a3a3; --accent:#60a5fa; --chip:#1a1a1a; } }
+:root[data-theme="dark"] { --bg:#0a0a0a; --fg:#ededed; --line:#262626; --muted:#a3a3a3; --accent:#60a5fa; --chip:#1a1a1a; }
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:var(--bg); color:var(--fg); font-family:system-ui,-apple-system,sans-serif; line-height:1.6; padding:20px; max-width:900px; margin:0 auto; }
+h1 { font-size:24px; margin:0 0 20px; padding-bottom:10px; border-bottom:2px solid var(--line); }
+h2 { font-size:20px; margin:24px 0 12px; color:var(--accent); }
+h3 { font-size:17px; margin:16px 0 8px; }
+h4 { font-size:15px; margin:12px 0 6px; }
+h5 { font-size:14px; margin:10px 0 4px; }
+p { margin:8px 0; }
+ul { margin:8px 0 8px 24px; }
+li { margin:3px 0; }
+pre { background:var(--chip); border:1px solid var(--line); border-radius:8px; padding:12px; overflow-x:auto; margin:12px 0; }
+code { font-family:Consolas,Monaco,monospace; font-size:13px; }
+p code { background:var(--chip); padding:2px 6px; border-radius:4px; }
+table { border-collapse:collapse; margin:12px 0; font-size:14px; width:100%; }
+th, td { border:1px solid var(--line); padding:6px 12px; text-align:left; }
+th { background:var(--chip); font-weight:600; }
+blockquote { border-left:4px solid var(--accent); margin:12px 0; padding:4px 14px; color:var(--muted); background:var(--chip); }
+hr { border:none; border-top:1px solid var(--line); margin:20px 0; }
+details summary { cursor:pointer; color:var(--accent); font-weight:500; user-select:none; }
+.wikilink { color:var(--accent); }
+.concepts { margin-top:40px; padding-top:20px; border-top:2px solid var(--line); }
+.concept-card { border:1px solid var(--line); border-radius:8px; padding:16px; margin:16px 0; background:var(--chip); }
+.concept-card h3 { margin-top:0; color:#9333ea; }
+.content > *:first-child { margin-top:0; }
+.content > *:last-child { margin-bottom:0; }
+</style>
+</head>
+<body>
+<h1>1.2.3 智慧金融服务业务模块效果优化</h1>
+<div class="lecture-body"><h3>1.2.3 讲义：智慧金融服务业务模块效果优化</h3>
+<ul>
+<li><strong>日期</strong>: 2026-08-20</li>
+<li><strong>状态</strong>: 待讲解</li>
+<li><strong>任务类型</strong>: 业务分析与优化方案设计（docx 答题卷）</li>
+<li><strong>考核时间</strong>: 30 分钟</li>
+</ul>
+<hr>
+<h4>一、任务场景解读</h4>
+<h5>业务背景</h5>
+<p>某智慧金融服务平台为用户提供<strong>金融健康监测</strong>服务，但在实际运营中暴露出两大核心问题：</p>
+<p>1. <strong>数据准确性不高</strong> —— 数据采集、清洗、处理环节存在偏差，导致用户看到的财务分析报告不准确</p>
+<p>2. <strong>异常预警响应慢</strong> —— 当用户账户出现异常交易、风险波动时，预警系统反应迟缓，错过最佳干预时机</p>
+<p>这两个问题直接影响用户体验和平台信任度，需要结合金融业务知识与 AI 技术进行优化。</p>
+<h5>任务目标</h5>
+<p>作为人工智能训练师，你需要：</p>
+<p>1. <strong>识别问题</strong>（任务①）：列举用户反映最强烈的问题，分析这些问题为何影响用户体验</p>
+<p>2. <strong>设计方案</strong>（任务②）：提出优化方案，明确实施步骤和预期效果</p>
+<p><strong>核心思维：不是写代码，是从业务视角分析问题 + 用 AI 技术思维设计解决方案</strong></p>
+<hr>
+<h4>二、核心知识点详解</h4>
+<h5>知识点① 业务问题识别</h5>
+<p><strong>定义</strong>：从用户反馈和业务场景中提取核心痛点，分析问题根源及其对用户体验的影响</p>
+<p><strong>识别方法论（三步走）</strong>：</p>
+<pre><code>用户反馈 → 痛点提取 → 影响评估</code></pre>
+<h6>智慧金融服务中的典型问题</h6>
+<p><strong>数据准确性问题</strong>（数据处理链条）：</p>
+<p>1. <strong>收支分类错误</strong></p>
+<ul>
+<li>现象：用户手动记账时商户名称识别错误（"美团外卖"被归为"交通出行"）</li>
+<li>根源：训练数据不足 + 商户名称库未更新</li>
+<li>影响：财务报表分类统计失真，用户对月度支出分析失去信任</li>
+</ul>
+<p>2. <strong>资产净值计算偏差</strong></p>
+<ul>
+<li>现象：多账户资产汇总时汇率、理财产品收益更新不及时</li>
+<li>根源：外部数据源接口调用频率低 + 缓存策略不当</li>
+<li>影响：用户看到的总资产与实际不符，影响投资决策</li>
+</ul>
+<p>3. <strong>重复交易未去重</strong></p>
+<ul>
+<li>现象：同一笔消费因不同渠道推送（银行短信 + 支付通知）被重复记录</li>
+<li>根源：数据清洗规则缺失交易指纹匹配机制</li>
+<li>影响：支出虚高，用户误以为过度消费</li>
+</ul>
+<p><strong>异常预警响应慢问题</strong>（实时性链条）：</p>
+<p>4. <strong>大额异常交易延迟预警</strong></p>
+<ul>
+<li>现象：用户信用卡在异地消费 5000 元，30 分钟后才收到预警推送</li>
+<li>根源：规则引擎批处理周期长（每 15 分钟扫一次）+ 模型推理性能低</li>
+<li>影响：错过止损窗口期，用户盗刷损失已形成</li>
+</ul>
+<p>5. <strong>市场风险预警滞后</strong></p>
+<ul>
+<li>现象：用户持有的基金净值暴跌 8%，但平台风险提示晚了 2 小时</li>
+<li>根源：行情数据推送依赖 T+1 日结算 + 未接入实时行情流</li>
+<li>影响：用户来不及止损，对平台风险管理能力失望</li>
+</ul>
+<p>6. <strong>个性化预警阈值固定</strong></p>
+<ul>
+<li>现象：所有用户都按"单笔 &gt;1000 元"预警，高收入用户频繁误报，学生用户漏报</li>
+<li>根源：未基于用户画像动态调整预警规则</li>
+<li>影响：高频误报导致用户关闭预警功能，真正风险时收不到提醒</li>
+</ul>
+<h6>分析框架（答题模板）</h6>
+<p>每个问题按 <strong>现象 → 根源 → 影响</strong> 三段式展开：</p>
+<ul>
+<li><strong>现象</strong>：用户能直接感知的问题表现（"我看到什么"）</li>
+<li><strong>根源</strong>：技术或流程上的深层原因（"为什么会这样"）</li>
+<li><strong>影响</strong>：对用户体验和业务目标的损害（"给我带来什么麻烦"）</li>
+</ul>
+<hr>
+<h5>知识点② 优化方案设计</h5>
+<p><strong>定义</strong>：针对识别出的问题，结合 AI 技术能力设计系统性改进方案，明确实施路径和验收标准</p>
+<p><strong>方案设计三要素</strong>：</p>
+<pre><code>问题诊断 → 技术选型 → 实施路径 + 效果预期</code></pre>
+<h6>数据准确性优化方案</h6>
+<p><strong>方案1：收支分类智能化</strong></p>
+<ul>
+<li><strong>技术手段</strong>：</li>
+<li>升级商户识别模型：收集 1 年用户标注数据，训练细粒度分类模型（BERT 文本分类）</li>
+<li>增量学习机制：新商户首次出现时触发人工审核 + 自动入库</li>
+<li>用户纠错反馈闭环：分类错误时允许用户一键纠正 → 模型增量训练</li>
+</ul>
+<ul>
+<li><strong>实施步骤</strong>：</li>
+</ul>
+<p>1. 数据准备：导出历史交易记录 + 人工标注 5000 条高频商户样本（2 周）</p>
+<p>2. 模型训练：Fine-tune 预训练模型，准确率 &gt;92%（1 周）</p>
+<p>3. A/B 测试：10% 用户灰度验证，收集纠错反馈（2 周）</p>
+<p>4. 全量发布：监控分类准确率，目标 &gt;95%（1 周）</p>
+<ul>
+<li><strong>预期效果</strong>：收支分类准确率从 78% 提升至 95%+，用户对账单的信任度提升 30%</li>
+</ul>
+<p><strong>方案2：资产净值实时更新</strong></p>
+<ul>
+<li><strong>技术手段</strong>：</li>
+<li>接入高频行情数据源（实时股票/基金/汇率 API），15 秒刷新一次</li>
+<li>缓存策略优化：热点资产（用户持仓 Top100）主动推送更新，长尾资产按需拉取</li>
+<li>计算结果增量更新：仅重算变动资产，避免全量计算</li>
+</ul>
+<ul>
+<li><strong>实施步骤</strong>：</li>
+</ul>
+<p>1. 对接外部数据源 API（行情服务商）+ 建立 WebSocket 推送通道（1 周）</p>
+<p>2. 重构资产计算引擎，支持增量更新（2 周）</p>
+<p>3. 压测验证：模拟 10 万用户并发访问，响应时间 &lt;500ms（1 周）</p>
+<ul>
+<li><strong>预期效果</strong>：资产净值实时性从 T+1 提升至 15 秒级，用户投资决策效率提高</li>
+</ul>
+<h6>异常预警响应优化方案</h6>
+<p><strong>方案3：实时风控引擎</strong></p>
+<ul>
+<li><strong>技术手段</strong>：</li>
+<li>流式计算架构：Flink 实时处理交易流，规则引擎响应时间从 15 分钟降至 &lt;5 秒</li>
+<li>多维度风险评分：结合交易金额、地理位置、时间、历史行为模式，实时计算风险分</li>
+<li>分级预警策略：高风险（&gt;80 分）立即短信 + APP push；中风险（60-80）仅 APP 通知</li>
+</ul>
+<ul>
+<li><strong>实施步骤</strong>：</li>
+</ul>
+<p>1. 搭建实时计算平台（Flink + Kafka）（3 周）</p>
+<p>2. 迁移风控规则至流式引擎 + 开发风险评分模型（2 周）</p>
+<p>3. 灰度验证：选取 1000 名高活跃用户测试预警准确率和响应速度（1 周）</p>
+<ul>
+<li><strong>预期效果</strong>：异常交易预警延迟从 30 分钟降至 5 秒内，盗刷拦截成功率提升 60%</li>
+</ul>
+<p><strong>方案4：个性化预警阈值</strong></p>
+<ul>
+<li><strong>技术手段</strong>：</li>
+<li>用户画像建模：基于历史消费数据聚类用户（学生/白领/高净值），为每类用户设定差异化阈值</li>
+<li>动态阈值调整：用户消费习惯变化时（如工资到账后支出增加），自动调整预警基线</li>
+<li>预警疲劳控制：同类预警 1 小时内最多 1 次，避免打扰</li>
+</ul>
+<ul>
+<li><strong>实施步骤</strong>：</li>
+</ul>
+<p>1. 用户分层：K-means 聚类 + 人工调优（1 周）</p>
+<p>2. 规则引擎改造：支持用户级动态参数（1 周）</p>
+<p>3. 效果监控：统计预警点击率、关闭率，迭代优化（持续）</p>
+<ul>
+<li><strong>预期效果</strong>：预警误报率下降 50%，用户预警开启率从 30% 回升至 70%</li>
+</ul>
+<hr>
+<h5>知识点③ 业务与技术融合</h5>
+<p><strong>定义</strong>：将 AI 技术能力（模型、算法、架构）与金融业务需求（准确性、实时性、合规性）有机结合，确保技术方案落地可行且符合业务目标</p>
+<p><strong>融合关键点</strong>：</p>
+<h6>1. 理解业务约束</h6>
+<ul>
+<li><strong>金融合规要求</strong>：预警逻辑需留存审计日志，模型决策需可解释（不能只给风险分不说原因）</li>
+<li><strong>成本控制</strong>：实时行情数据按调用量收费，需平衡准确性与成本（热点资产高频，长尾低频）</li>
+<li><strong>用户体验边界</strong>：预警频率过高导致用户疲劳关闭功能，需精准而非密集</li>
+</ul>
+<h6>2. 技术方案接地气</h6>
+<ul>
+<li><strong>不盲目追新</strong>：小平台用简单规则引擎 + 阈值调整即可见效，不必上复杂深度学习模型</li>
+<li><strong>灰度验证</strong>：新方案先在 10% 用户试点，收集真实反馈后再全量（避免全量翻车）</li>
+<li><strong>人机协同</strong>：关键决策（如冻结账户）保留人工审核环节，AI 提供决策依据而非完全自动化</li>
+</ul>
+<h6>3. 效果可量化</h6>
+<p>优化方案必须定义清晰的<strong>验收指标</strong>：</p>
+<ul>
+<li>数据准确性：分类准确率、资产净值误差率</li>
+<li>实时性：预警响应时间、数据刷新频率</li>
+<li>用户体验：预警点击率、功能使用时长、NPS 评分</li>
+</ul>
+<p><strong>反例警示</strong>："采用 AI 技术优化系统" —— 这不是方案，只是口号。好方案要说清楚"用什么 AI 技术、解决什么具体问题、怎么落地、效果怎么验收"。</p>
+<hr>
+<h4>三、答题框架指导</h4>
+<h5>任务① 问题识别（1.2.3-1）</h5>
+<p><strong>建议结构</strong>（500-800 字）：</p>
+<p>列举 <strong>3-5 个问题</strong>，每个问题包含：</p>
+<p>1. <strong>问题名称</strong>（一句话概括）</p>
+<p>2. <strong>具体表现</strong>（用户能感知的现象）</p>
+<p>3. <strong>技术根源</strong>（为什么会出现这个问题）</p>
+<p>4. <strong>体验影响</strong>（对用户造成什么损失或不便）</p>
+<p><strong>示例段落</strong>：</p>
+<blockquote><strong>问题1：收支分类错误率高</strong></blockquote>
+<blockquote></blockquote>
+<blockquote>用户在使用自动记账功能时，经常发现商户识别错误。例如"美团外卖"消费被归类为"交通出行"，"滴滴出租车"被归为"餐饮美食"。这是因为平台的商户识别模型训练数据不足，且未建立持续更新的商户名称库。当分类错误频繁发生时，用户需要逐笔手动修正，失去了"智能记账"的便利性，月度财务报表的可信度也大打折扣，最终导致用户放弃使用该功能。</blockquote>
+<hr>
+<h5>任务② 优化方案（1.2.3-2）</h5>
+<p><strong>建议结构</strong>（800-1200 字）：</p>
+<p>1. <strong>方案概述</strong>（1 段）：针对哪些问题，采用什么技术思路</p>
+<p>2. <strong>关键实施步骤</strong>（3-5 步）：按时间顺序列出具体行动</p>
+<p>3. <strong>技术选型说明</strong>（可选）：为什么选这个技术而非其他方案</p>
+<p>4. <strong>预期效果</strong>（1 段）：用量化指标描述优化后的改善</p>
+<p><strong>示例段落</strong>：</p>
+<blockquote><strong>优化方案：构建实时风控引擎 + 个性化预警体系</strong></blockquote>
+<blockquote></blockquote>
+<blockquote>针对数据准确性和预警响应慢的问题,我设计了以下优化方案：</blockquote>
+<blockquote></blockquote>
+<blockquote><strong>实施步骤</strong>：</blockquote>
+<blockquote></blockquote>
+<blockquote>1. <strong>数据质量提升（第 1-2 周）</strong>：收集用户纠错记录，标注 5000 条高频商户样本，Fine-tune BERT 文本分类模型，将商户识别准确率提升至 95% 以上。</blockquote>
+<blockquote></blockquote>
+<blockquote>2. <strong>实时计算架构搭建（第 3-5 周）</strong>：部署 Flink + Kafka 流式计算平台，将原有批处理风控引擎改造为实时流式处理，异常交易检测延迟从 15 分钟降至 5 秒以内。</blockquote>
+<blockquote></blockquote>
+<blockquote>3. <strong>用户画像建模（第 6-7 周）</strong>：基于历史消费数据，用 K-means 聚类将用户分为学生、白领、高净值三类，为每类设定差异化预警阈值（如学生单笔 &gt;500 元预警，高净值用户单笔 &gt;5000 元预警），同时建立动态调整机制，当用户消费习惯变化时自动优化阈值。</blockquote>
+<blockquote></blockquote>
+<blockquote>4. <strong>灰度验证与优化（第 8-9 周）</strong>：选取 1000 名活跃用户进行 A/B 测试，监控预警准确率、响应速度、用户点击率等指标，根据反馈迭代优化规则引擎参数。</blockquote>
+<blockquote></blockquote>
+<blockquote>5. <strong>全量发布与持续监控（第 10 周起）</strong>：正式上线新版风控系统，建立实时监控大盘，跟踪预警误报率、盗刷拦截成功率、用户满意度等核心指标。</blockquote>
+<blockquote></blockquote>
+<blockquote><strong>预期效果</strong>：</blockquote>
+<blockquote>- 商户分类准确率从 78% 提升至 95%+，用户手动修正频次下降 70%</blockquote>
+<blockquote>- 异常交易预警响应时间从 30 分钟降至 5 秒，盗刷拦截成功率提升 60%</blockquote>
+<blockquote>- 预警误报率下降 50%，用户预警功能开启率从 30% 回升至 70%</blockquote>
+<blockquote>- 用户对金融健康监测服务的 NPS 评分提升 25 分</blockquote>
+<hr>
+<h4>四、自测题</h4>
+<p>1. 为什么"数据分类准确率低"会影响用户对智慧金融平台的信任？从业务场景角度分析。</p>
+<p>2. 异常预警从 30 分钟降至 5 秒，背后需要什么技术架构变化？为什么批处理架构做不到实时？</p>
+<p>3. "采用 AI 技术优化金融服务"这句话为什么不是一个合格的优化方案？好方案应该包含哪些要素?</p>
+<details>
+<summary>参考答案（先自测再看）</summary>
+<p>1. <strong>信任损害的业务逻辑</strong>：</p>
+<ul>
+<li>用户依赖平台的财务分析做预算和投资决策，当分类错误导致"餐饮支出虚高""交通费异常"时，月度报表失真</li>
+<li>用户需要逐笔手动修正，体验从"智能自动"退化为"人工记账"，平台的 AI 能力被质疑</li>
+<li>长期累积的数据偏差可能误导用户的理财决策（如误判消费习惯、错误的储蓄率分析），当用户发现问题后会彻底失去信任并流失</li>
+</ul>
+<p>2. <strong>架构变化的必要性</strong>：</p>
+<ul>
+<li><strong>批处理</strong>：每 15 分钟扫描一次数据库，处理积压的交易记录 → 天然延迟 15+ 分钟</li>
+<li><strong>实时流式</strong>：Kafka 接收交易事件流 → Flink 实时计算风险分 → 触发阈值立即推送预警 → 全链路 &lt;5 秒</li>
+<li>核心差异：批处理是"攒一批再处理"，流式是"来一条处理一条"；金融风控场景需要秒级响应，只能用流式架构</li>
+</ul>
+<p>3. <strong>合格方案的五要素</strong>：</p>
+<ul>
+<li><strong>问题定位</strong>：针对哪个具体问题（不能泛泛而谈"优化系统"）</li>
+<li><strong>技术选型</strong>：用什么 AI 技术/算法/架构（BERT 分类、Flink 流计算、K-means 聚类…）</li>
+<li><strong>实施步骤</strong>：分几步走，每步做什么，需要多长时间</li>
+<li><strong>落地可行性</strong>：考虑成本、合规、数据、团队能力等约束条件</li>
+<li><strong>效果验收</strong>：用量化指标定义成功标准（准确率 95%、延迟 &lt;5 秒、NPS +25 分）</li>
+</ul>
+</details>
+<hr>
+<h4>五、关联概念（已入知识库）</h4>
+<ul>
+<li><span class="wikilink">concepts/业务问题识别</span> · <span class="wikilink">concepts/优化方案设计</span> · <span class="wikilink">concepts/业务与技术融合</span></li>
+</ul></div>
+<section class="concepts"><h2>知识点卡片</h2><section class="concept-card"><h3>业务与技术融合</h3><div class="content"><h3>业务与技术融合</h3>
+<ul>
+<li><strong>来源章节</strong>: 1.2.3</li>
+<li><strong>定义</strong>: 将 AI 技术能力（模型、算法、架构）与业务需求（准确性、实时性、合规性）有机结合，确保技术方案落地可行且符合业务目标</li>
+<li><strong>融合原则</strong>:</li>
+<li><strong>技术服务业务</strong>: AI 不是目的而是手段，技术方案要解决真实业务痛点</li>
+<li><strong>业务约束技术</strong>: 技术选型必须考虑成本、合规、安全、团队能力等现实限制</li>
+<li><strong>效果可衡量</strong>: 技术投入必须转化为可量化的业务价值（收入增长、成本降低、体验提升）</li>
+<li><strong>关键融合点</strong>:</li>
+</ul>
+<p>1. <strong>理解业务约束</strong>:</p>
+<ul>
+<li>金融行业：合规审计（模型决策可解释）、风险控制（误报成本 vs 漏报成本）</li>
+<li>医疗行业：安全标准（FDA 认证）、隐私保护（HIPAA 合规）</li>
+<li>教育行业：公平性（算法不能歧视特定群体）、透明性（家长知情权）</li>
+</ul>
+<p>2. <strong>技术方案接地气</strong>:</p>
+<ul>
+<li>不盲目追新：小平台用简单规则引擎即可，不必上复杂深度学习</li>
+<li>成本可控：实时数据按调用量收费，需平衡准确性与成本（热点高频、长尾低频）</li>
+<li>灰度验证：新方案先 10% 用户试点，避免全量翻车</li>
+</ul>
+<p>3. <strong>人机协同</strong>:</p>
+<ul>
+<li>关键决策保留人工审核（如金融风控中的账户冻结）</li>
+<li>AI 提供决策依据而非完全自动化（推荐而非强制）</li>
+<li>用户反馈闭环：允许用户纠错，模型持续学习优化</li>
+</ul>
+<p>4. <strong>效果可量化</strong>:</p>
+<ul>
+<li>技术指标：模型准确率、响应时间、系统吞吐量</li>
+<li>业务指标：用户留存率、功能使用率、NPS 评分、ROI</li>
+<li>对齐验收：技术团队和业务团队就验收标准达成一致</li>
+<li><strong>典型场景</strong>:</li>
+<li><strong>智慧金融</strong>: 实时风控引擎（技术）+ 个性化预警阈值（业务）→ 降低误报率提升用户信任</li>
+<li><strong>智慧医疗</strong>: 影像识别模型（技术）+ 医生审核机制（业务）→ 辅助诊断而非替代医生</li>
+<li><strong>智慧农业</strong>: 病虫害识别（技术）+ 农技专家远程指导（业务）→ AI 筛查 + 人工确诊</li>
+<li><strong>反面案例</strong>（技术与业务脱节）:</li>
+<li>部署高精度模型但推理耗时 10 秒，用户等不及直接关闭（技术强但业务不可用）</li>
+<li>预警系统过于敏感，每天推送 50 条通知，用户疲劳后关闭功能（技术优化了召回率但牺牲了用户体验）</li>
+<li>采用最新大模型但部署成本是业务收入的 3 倍（技术先进但商业不可持续）</li>
+<li><strong>人工智能训练师的角色</strong>: 充当技术团队与业务团队之间的翻译官和桥梁</li>
+<li>向技术团队传达业务需求和约束（"金融预警不能只追求准确率，误报率也很关键"）</li>
+<li>向业务团队解释技术能力和边界（"模型准确率 95% 意味着 100 次里有 5 次会错"）</li>
+<li>设计兼顾技术可行性和业务价值的落地方案</li>
+<li><strong>易错点</strong>:</li>
+<li>技术至上：只关注模型指标，不考虑业务场景（"准确率 99% 但响应慢 30 秒"）</li>
+<li>业务妥协：为了快速上线放弃必要的技术投入（"先用规则顶着"导致长期技术债）</li>
+<li>缺少量化：无法证明技术投入的业务价值（"用了 AI 但说不清带来多少收益"）</li>
+<li><strong>关联</strong>: <span class="wikilink">业务问题识别</span> · <span class="wikilink">优化方案设计</span></li>
+</ul></div></section></section>
+</body>
+</html>

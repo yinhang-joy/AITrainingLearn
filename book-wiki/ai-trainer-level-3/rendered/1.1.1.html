@@ -202,6 +202,33 @@ df.groupby(&#x27;BMI_类别&#x27;)[&#x27;高风险&#x27;].agg([&#x27;count&#x27;
                 np.where(df[&#x27;Value&#x27;] &gt; 50, &#x27;中&#x27;, &#x27;低&#x27;))</code></pre>
 <li><strong>⚠️ 易错点</strong>: 复杂条件必须加括号（和布尔索引一样）</li>
 <li><strong>关联</strong>: <span class="wikilink">boolean-column-assignment</span> · <span class="wikilink">boolean-indexing</span></li>
+</ul></div></section><section class="concept-card"><h3>pandas-cut-binning</h3><div class="content"><h3>pandas-cut-binning（分组统计与数据分箱）</h3>
+<ul>
+<li><strong>来源章节</strong>: 1.1.1（首次）、1.1.4（深化）</li>
+<li><strong>定义</strong>: 使用 <code>pd.cut()</code> 将连续变量切分为离散区间，配合 <code>groupby()</code> 进行分组统计</li>
+<li><strong>用法</strong>:</li>
+<pre><code>  # 连续变量 → 离散区间
+  age_groups = pd.cut(df[&#x27;Age&#x27;], 
+                      bins=[0, 25, 35, 45, 100],
+                      labels=[&#x27;青年&#x27;, &#x27;中年&#x27;, &#x27;中年&#x27;, &#x27;老年&#x27;],
+                      right=False)
+  df[&#x27;AgeGroup&#x27;] = age_groups
+  
+  # 分组统计
+  df.groupby(&#x27;AgeGroup&#x27;)[&#x27;Amount&#x27;].agg([&#x27;count&#x27;, &#x27;mean&#x27;, &#x27;sum&#x27;])</code></pre>
+<li><strong>参数详解</strong>:</li>
+<li><code>bins</code>：边界列表（n 个边界 → n-1 个区间）</li>
+<li><code>labels</code>：区间名称（长度 = len(bins) - 1）</li>
+<li><code>right=True</code>（默认）：左开右闭 <code>(a, b]</code></li>
+<li><code>right=False</code>：左闭右开 <code>[a, b)</code></li>
+<li><strong>⚠️ 考点</strong>:</li>
+<li>题目「18-25 岁」是否包含 18？需要 <code>right=False</code></li>
+<li>不加 <code>right=False</code> 则边界值会落到上一个区间</li>
+<li>bins 列表长度 = labels 长度 + 1</li>
+<li><strong>对比 between()</strong>:</li>
+<li><code>pd.cut()</code> 用于<strong>分类</strong>：给每个值打上区间标签</li>
+<li><code>.between()</code> 用于<strong>过滤</strong>：返回布尔 Series 筛选行</li>
+<li><strong>关联</strong>: <span class="wikilink">groupby-aggregation</span> · <span class="wikilink">between-filter</span> · <span class="wikilink">boolean-indexing</span></li>
 </ul></div></section><section class="concept-card"><h3>pandas-read-csv</h3><div class="content"><h3>pandas-read-csv</h3>
 <ul>
 <li><strong>来源章节</strong>: 1.1.1</li>

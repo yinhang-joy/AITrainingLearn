@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>1.1.4 电商平台用户行为分析系统的数据采集与处理流程设计</title>
+<style>
+:root { --bg:#fff; --fg:#1a1a1a; --line:#e5e5e5; --muted:#737373; --accent:#2563eb; --chip:#f5f5f5; }
+@media (prefers-color-scheme:dark) { :root:not([data-theme="light"]) { --bg:#0a0a0a; --fg:#ededed; --line:#262626; --muted:#a3a3a3; --accent:#60a5fa; --chip:#1a1a1a; } }
+:root[data-theme="dark"] { --bg:#0a0a0a; --fg:#ededed; --line:#262626; --muted:#a3a3a3; --accent:#60a5fa; --chip:#1a1a1a; }
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:var(--bg); color:var(--fg); font-family:system-ui,-apple-system,sans-serif; line-height:1.6; padding:20px; max-width:900px; margin:0 auto; }
+h1 { font-size:24px; margin:0 0 20px; padding-bottom:10px; border-bottom:2px solid var(--line); }
+h2 { font-size:20px; margin:24px 0 12px; color:var(--accent); }
+h3 { font-size:17px; margin:16px 0 8px; }
+h4 { font-size:15px; margin:12px 0 6px; }
+h5 { font-size:14px; margin:10px 0 4px; }
+p { margin:8px 0; }
+ul { margin:8px 0 8px 24px; }
+li { margin:3px 0; }
+pre { background:var(--chip); border:1px solid var(--line); border-radius:8px; padding:12px; overflow-x:auto; margin:12px 0; }
+code { font-family:Consolas,Monaco,monospace; font-size:13px; }
+p code { background:var(--chip); padding:2px 6px; border-radius:4px; }
+table { border-collapse:collapse; margin:12px 0; font-size:14px; width:100%; }
+th, td { border:1px solid var(--line); padding:6px 12px; text-align:left; }
+th { background:var(--chip); font-weight:600; }
+blockquote { border-left:4px solid var(--accent); margin:12px 0; padding:4px 14px; color:var(--muted); background:var(--chip); }
+hr { border:none; border-top:1px solid var(--line); margin:20px 0; }
+details summary { cursor:pointer; color:var(--accent); font-weight:500; user-select:none; }
+.wikilink { color:var(--accent); }
+.concepts { margin-top:40px; padding-top:20px; border-top:2px solid var(--line); }
+.concept-card { border:1px solid var(--line); border-radius:8px; padding:16px; margin:16px 0; background:var(--chip); }
+.concept-card h3 { margin-top:0; color:#9333ea; }
+.content > *:first-child { margin-top:0; }
+.content > *:last-child { margin-bottom:0; }
+</style>
+</head>
+<body>
+<h1>1.1.4 电商平台用户行为分析系统的数据采集与处理流程设计</h1>
+<div class="lecture-body"><h3>1.1.4 讲义：电商平台用户行为分析系统的数据采集与处理流程设计</h3>
+<ul>
+<li><strong>日期</strong>: 2026-08-20</li>
+<li><strong>状态</strong>: 已讲解，待自测 → 待做题（ipynb）</li>
+<li><strong>数据</strong>: <code>user_behavior_data.csv</code>（用户行为数据：用户ID / 年龄 / 购买金额 / 评分 / 行为类型等）</li>
+<li><strong>考核时间</strong>: 30 分钟，机考</li>
+</ul>
+<hr>
+<h4>一、任务解读（数据清洗全流程：1.1.1 + 1.1.2 的综合应用）</h4>
+<h5>本单元知识地图</h5>
+<table class='md'><thead><tr>
+<th>已学知识（复用）</th><th>本单元新增</th>
+</tr></thead><tbody>
+<tr><td><code>pd.read_csv()</code> 读取数据</td><td><strong>数据类型转换</strong> <code>astype()</code></td></tr>
+<tr><td><code>dropna()</code> 删除缺失值</td><td><strong>异常值检测</strong> <code>between()</code> 方法</td></tr>
+<tr><td><code>groupby()</code> 分组统计</td><td><strong>Z-score 标准化</strong>（数据归一化）</td></tr>
+<tr><td>布尔索引筛选</td><td><strong>pandas.cut()</strong> 数据分箱（1.1.1 已学，本单元深化）</td></tr>
+</tbody></table>
+<h5>核心业务场景</h5>
+<p>电商平台每天产生海量用户行为数据（浏览、点击、购买、评价），但原始数据存在：</p>
+<p>1. <strong>缺失值</strong>：部分用户未填写年龄或评分</p>
+<p>2. <strong>数据类型错误</strong>：年龄被读成浮点数，金额被读成字符串</p>
+<p>3. <strong>异常值</strong>：年龄 200 岁、购买金额 -100 元、评分 10 分（满分 5 分）</p>
+<p>4. <strong>量纲不一致</strong>：年龄 20-60、金额 0-10000、评分 1-5，需标准化才能比较</p>
+<p>本单元任务：<strong>从脏数据到干净数据的完整清洗流程</strong>。</p>
+<hr>
+<h4>二、数据处理六步法（考试必考流程）</h4>
+<pre><code>原始数据 → ① 读取查看 → ② 删除缺失值 → ③ 类型转换 → 
+④ 异常值过滤 → ⑤ 数据标准化 → ⑥ 分组统计</code></pre>
+<h5>任务①：数据读取与基本查看</h5>
+<pre><code>import pandas as pd
+import numpy as np
+
+data = pd.read_csv(&#x27;user_behavior_data.csv&#x27;)
+print(data.head())       # 查看前 5 行
+print(data.info())       # 查看列类型、缺失值
+print(data.describe())   # 统计数值列的分布</code></pre>
+<p><strong>知识点</strong>：<code>.info()</code> 显示每列数据类型（int64/float64/object），<code>.describe()</code> 显示均值/最大最小值。</p>
+<hr>
+<h5>任务②：缺失值处理</h5>
+<pre><code># 查看缺失值数量
+print(data.isnull().sum())
+
+# 删除包含缺失值的行
+data_clean = data.dropna()
+print(f&quot;删除前: {len(data)} 行&quot;)
+print(f&quot;删除后: {len(data_clean)} 行&quot;)</code></pre>
+<p><strong>知识点</strong>：</p>
+<ul>
+<li><code>.isnull()</code> 返回布尔 DataFrame（True=缺失，False=非缺失）</li>
+<li><code>.dropna()</code> 删除任意列有 NaN 的行（默认 <code>how='any'</code>）</li>
+</ul>
+<hr>
+<h5>任务③：数据类型转换</h5>
+<pre><code># 年龄从浮点转整型
+data_clean[&#x27;Age&#x27;] = data_clean[&#x27;Age&#x27;].astype(int)
+
+# 购买金额从字符串转浮点
+data_clean[&#x27;Amount&#x27;] = data_clean[&#x27;Amount&#x27;].astype(float)
+
+# 验证转换结果
+print(data_clean.dtypes)</code></pre>
+<p><strong>知识点</strong>：</p>
+<ul>
+<li><code>.astype(int)</code> 转整型（小数部分直接截断，不是四舍五入）</li>
+<li><code>.astype(float)</code> 转浮点型</li>
+<li>转换前确保数据合法（如字符串 <code>'100.5'</code> 可转 float，但 <code>'abc'</code> 会报错）</li>
+</ul>
+<hr>
+<h5>任务④：异常值检测与过滤</h5>
+<pre><code># 定义合理范围
+age_valid = data_clean[&#x27;Age&#x27;].between(18, 80)           # 年龄 18-80
+amount_valid = data_clean[&#x27;Amount&#x27;].between(0, 10000)   # 金额 0-10000
+rating_valid = data_clean[&#x27;Rating&#x27;].between(1, 5)       # 评分 1-5
+
+# 筛选所有条件都满足的行
+data_clean = data_clean[age_valid &amp; amount_valid &amp; rating_valid]
+print(f&quot;异常值过滤后: {len(data_clean)} 行&quot;)</code></pre>
+<p><strong>知识点</strong>：</p>
+<ul>
+<li><code>.between(left, right)</code> 检查值是否在区间内（包含边界，即 <code>[left, right]</code>）</li>
+<li>返回布尔 Series，配合 <code>&amp;</code> 组合多个条件</li>
+<li>⚠️ <strong>多条件必须加括号</strong>：<code>(cond1) &amp; (cond2) &amp; (cond3)</code></li>
+</ul>
+<hr>
+<h5>任务⑤：数据标准化（Z-score 标准化）</h5>
+<pre><code># 对年龄、金额、评分进行标准化
+for col in [&#x27;Age&#x27;, &#x27;Amount&#x27;, &#x27;Rating&#x27;]:
+    mean = data_clean[col].mean()
+    std = data_clean[col].std()
+    data_clean[f&#x27;{col}_std&#x27;] = (data_clean[col] - mean) / std
+
+# 查看标准化结果
+print(data_clean[[&#x27;Age&#x27;, &#x27;Age_std&#x27;, &#x27;Amount&#x27;, &#x27;Amount_std&#x27;]].head())</code></pre>
+<p><strong>知识点</strong>：</p>
+<ul>
+<li><strong>Z-score 公式</strong>：<code>(x - μ) / σ</code>（每个值减去均值，再除以标准差）</li>
+<li>标准化后：均值=0，标准差=1，不同量纲的数据变为同一尺度</li>
+<li>应用场景：机器学习模型训练前的特征工程</li>
+</ul>
+<hr>
+<h5>任务⑥：分组统计与数据分箱</h5>
+<pre><code># 按年龄段分组
+age_bins = pd.cut(data_clean[&#x27;Age&#x27;], 
+                  bins=[0, 25, 35, 45, 55, 100],
+                  labels=[&#x27;18-25&#x27;, &#x27;26-35&#x27;, &#x27;36-45&#x27;, &#x27;46-55&#x27;, &#x27;56+&#x27;])
+data_clean[&#x27;AgeGroup&#x27;] = age_bins
+
+# 统计各年龄段的购买金额
+age_stats = data_clean.groupby(&#x27;AgeGroup&#x27;)[&#x27;Amount&#x27;].agg([&#x27;count&#x27;, &#x27;mean&#x27;, &#x27;sum&#x27;])
+print(age_stats)</code></pre>
+<p><strong>知识点</strong>：</p>
+<ul>
+<li><code>pd.cut()</code> 将连续变量切分为离散区间（复用 1.1.1 知识）</li>
+<li><code>groupby().agg([...])</code> 一次计算多个统计量</li>
+</ul>
+<hr>
+<h4>三、新知识点详解</h4>
+<h5>① 数据类型转换 <code>.astype()</code></h5>
+<pre><code># 示例数据
+df = pd.DataFrame({&#x27;A&#x27;: [1.5, 2.8, 3.2], &#x27;B&#x27;: [&#x27;10&#x27;, &#x27;20&#x27;, &#x27;30&#x27;]})
+
+# 浮点转整型（截断小数，不是四舍五入）
+df[&#x27;A&#x27;] = df[&#x27;A&#x27;].astype(int)    # [1.5, 2.8, 3.2] → [1, 2, 3]
+
+# 字符串转浮点
+df[&#x27;B&#x27;] = df[&#x27;B&#x27;].astype(float)  # [&#x27;10&#x27;, &#x27;20&#x27;, &#x27;30&#x27;] → [10.0, 20.0, 30.0]</code></pre>
+<p><strong>常用类型</strong>：</p>
+<ul>
+<li><code>int</code> / <code>'int64'</code>：整型</li>
+<li><code>float</code> / <code>'float64'</code>：浮点型</li>
+<li><code>str</code> / <code>'object'</code>：字符串</li>
+</ul>
+<p><strong>⚠️ 易错点</strong>：</p>
+<ul>
+<li>转换前检查数据合法性：<code>'abc'.astype(float)</code> 会报错</li>
+<li>浮点转整型直接截断：<code>2.9 → 2</code>（不是 3）</li>
+</ul>
+<hr>
+<h5>② 异常值检测 <code>.between()</code></h5>
+<pre><code># between(left, right) 检查值是否在区间内
+df = pd.DataFrame({&#x27;score&#x27;: [50, 75, 120, -10, 85]})
+
+valid = df[&#x27;score&#x27;].between(0, 100)
+# 结果：[True, True, False, False, True]
+
+df_clean = df[valid]
+# 结果：[50, 75, 85]（删除了 120 和 -10）</code></pre>
+<p><strong>参数</strong>：</p>
+<ul>
+<li><code>left</code>：左边界（默认包含）</li>
+<li><code>right</code>：右边界（默认包含）</li>
+<li><code>inclusive='both'</code>：默认包含两端，可改为 <code>'left'</code> / <code>'right'</code> / <code>'neither'</code></li>
+</ul>
+<p><strong>对比 1.1.1 的 <code>pd.cut()</code></strong>：</p>
+<ul>
+<li><code>between()</code> 用于<strong>过滤</strong>：保留范围内的行</li>
+<li><code>pd.cut()</code> 用于<strong>分类</strong>：给每行打上区间标签</li>
+</ul>
+<hr>
+<h5>③ Z-score 标准化</h5>
+<p><strong>公式</strong>：</p>
+<pre><code>z = (x - μ) / σ</code></pre>
+<ul>
+<li><code>x</code>：原始值</li>
+<li><code>μ</code>：均值（mean）</li>
+<li><code>σ</code>：标准差（std）</li>
+</ul>
+<p><strong>代码实现</strong>：</p>
+<pre><code>mean = df[&#x27;Age&#x27;].mean()
+std = df[&#x27;Age&#x27;].std()
+df[&#x27;Age_std&#x27;] = (df[&#x27;Age&#x27;] - mean) / std</code></pre>
+<p><strong>标准化后的特征</strong>：</p>
+<ul>
+<li>均值 = 0</li>
+<li>标准差 = 1</li>
+<li>解释：z=2 表示「比均值高 2 个标准差」，z=-1 表示「比均值低 1 个标准差」</li>
+</ul>
+<p><strong>应用场景</strong>：</p>
+<p>1. 机器学习特征工程（不同量纲的特征需统一尺度）</p>
+<p>2. 异常值检测（|z| &gt; 3 通常认为是异常值）</p>
+<p>3. 数据可视化（不同指标在同一图表对比）</p>
+<hr>
+<h5>④ 数据分箱 <code>pd.cut()</code> 深化</h5>
+<pre><code># 连续变量 → 离散区间
+ages = [22, 35, 45, 58, 70]
+age_groups = pd.cut(ages, 
+                    bins=[0, 30, 50, 100], 
+                    labels=[&#x27;青年&#x27;, &#x27;中年&#x27;, &#x27;老年&#x27;])
+# 结果：[&#x27;青年&#x27;, &#x27;中年&#x27;, &#x27;中年&#x27;, &#x27;老年&#x27;, &#x27;老年&#x27;]</code></pre>
+<p><strong>参数详解</strong>：</p>
+<ul>
+<li><code>bins</code>：边界列表（n 个边界 → n-1 个区间）</li>
+<li><code>labels</code>：区间名称（长度 = len(bins) - 1）</li>
+<li><code>right=True</code>（默认）：左开右闭 <code>(a, b]</code></li>
+<li><code>right=False</code>：左闭右开 <code>[a, b)</code></li>
+</ul>
+<p><strong>⚠️ 考点（1.1.1 已学）</strong>：</p>
+<ul>
+<li>题目「18-25 岁」是否包含 18？需要 <code>right=False</code></li>
+<li>不加 <code>right=False</code> 则 18 会落到上一个区间</li>
+</ul>
+<hr>
+<h5>⑤ 数据读取与查看三件套</h5>
+<pre><code>data = pd.read_csv(&#x27;file.csv&#x27;)
+
+# 1. 查看前几行（了解数据结构）
+print(data.head())
+
+# 2. 查看列信息（类型、缺失值）
+print(data.info())
+# 输出示例：
+# Age      950 non-null  float64  ← 有 50 个缺失值（共 1000 行）
+# Amount   1000 non-null object   ← 金额是字符串类型（应该转成 float）
+
+# 3. 统计数值列（均值、最大最小值、四分位数）
+print(data.describe())</code></pre>
+<p><strong>三者区别</strong>：</p>
+<ul>
+<li><code>.head()</code>：看数据长什么样（前 5 行）</li>
+<li><code>.info()</code>：看数据类型和缺失值</li>
+<li><code>.describe()</code>：看数值分布（只统计数值列）</li>
+</ul>
+<hr>
+<h4>四、完整解题流程演示</h4>
+<pre><code>import pandas as pd
+import numpy as np
+
+# ① 读取数据
+data = pd.read_csv(&#x27;user_behavior_data.csv&#x27;)
+print(f&quot;原始数据: {len(data)} 行&quot;)
+print(data.info())
+
+# ② 删除缺失值
+data = data.dropna()
+print(f&quot;删除缺失值后: {len(data)} 行&quot;)
+
+# ③ 数据类型转换
+data[&#x27;Age&#x27;] = data[&#x27;Age&#x27;].astype(int)
+data[&#x27;Amount&#x27;] = data[&#x27;Amount&#x27;].astype(float)
+
+# ④ 异常值过滤
+age_valid = data[&#x27;Age&#x27;].between(18, 80)
+amount_valid = data[&#x27;Amount&#x27;].between(0, 10000)
+rating_valid = data[&#x27;Rating&#x27;].between(1, 5)
+data = data[age_valid &amp; amount_valid &amp; rating_valid]
+print(f&quot;异常值过滤后: {len(data)} 行&quot;)
+
+# ⑤ 数据标准化
+for col in [&#x27;Age&#x27;, &#x27;Amount&#x27;, &#x27;Rating&#x27;]:
+    mean = data[col].mean()
+    std = data[col].std()
+    data[f&#x27;{col}_std&#x27;] = (data[col] - mean) / std
+
+# ⑥ 分组统计
+data[&#x27;AgeGroup&#x27;] = pd.cut(data[&#x27;Age&#x27;], 
+                          bins=[0, 25, 35, 45, 55, 100],
+                          labels=[&#x27;18-25&#x27;, &#x27;26-35&#x27;, &#x27;36-45&#x27;, &#x27;46-55&#x27;, &#x27;56+&#x27;])
+result = data.groupby(&#x27;AgeGroup&#x27;)[&#x27;Amount&#x27;].agg([&#x27;count&#x27;, &#x27;mean&#x27;, &#x27;sum&#x27;])
+print(result)</code></pre>
+<hr>
+<h4>五、易错点（考试陷阱）</h4>
+<h5>⚠️ 陷阱 1：<code>.astype(int)</code> 截断小数，不是四舍五入</h5>
+<pre><code>df = pd.DataFrame({&#x27;score&#x27;: [89.9, 90.1, 85.5]})
+
+# ❌ 错误理解：以为 89.9 → 90
+df[&#x27;score&#x27;].astype(int)    # 结果：[89, 90, 85]
+
+# ✅ 四舍五入需要先 round()
+df[&#x27;score&#x27;].round().astype(int)    # 结果：[90, 90, 86]</code></pre>
+<hr>
+<h5>⚠️ 陷阱 2：多条件筛选忘记括号</h5>
+<pre><code># ❌ 错误（运算符优先级导致逻辑错误）
+data[(data[&#x27;Age&#x27;] &gt; 18) &amp; data[&#x27;Amount&#x27;] &lt; 1000]   # 第二个条件没括号
+
+# ✅ 正确
+data[(data[&#x27;Age&#x27;] &gt; 18) &amp; (data[&#x27;Amount&#x27;] &lt; 1000)]</code></pre>
+<hr>
+<h5>⚠️ 陷阱 3：<code>.between()</code> 默认包含边界</h5>
+<pre><code>df = pd.DataFrame({&#x27;age&#x27;: [18, 25, 30]})
+
+# between(18, 25) 默认包含 18 和 25
+df[df[&#x27;age&#x27;].between(18, 25)]    # 结果：[18, 25]
+
+# 如果题目要求「18 &lt; age &lt; 25」（不含边界）
+df[df[&#x27;age&#x27;].between(18, 25, inclusive=&#x27;neither&#x27;)]    # 结果：[]</code></pre>
+<hr>
+<h5>⚠️ 陷阱 4：Z-score 标准化后原列被覆盖</h5>
+<pre><code># ❌ 错误（原始数据丢失）
+data[&#x27;Age&#x27;] = (data[&#x27;Age&#x27;] - data[&#x27;Age&#x27;].mean()) / data[&#x27;Age&#x27;].std()
+
+# ✅ 正确（新建列保留原始数据）
+data[&#x27;Age_std&#x27;] = (data[&#x27;Age&#x27;] - data[&#x27;Age&#x27;].mean()) / data[&#x27;Age&#x27;].std()</code></pre>
+<hr>
+<h4>六、考试注意事项</h4>
+<ul>
+<li>30 分钟限时；ipynb <strong>只填空，勿增删改其他代码</strong></li>
+<li>数据清洗流程有先后顺序：先删缺失值 → 再转类型 → 再过滤异常值</li>
+<li><code>.astype()</code> 转换失败会报错（如字符串 <code>'abc'</code> 转 float），考试数据通常已确保可转换</li>
+<li>Z-score 标准化公式必须记住：<code>(x - mean) / std</code></li>
+<li>结果截图保存 jpg，运行后 ipynb 另存为 HTML 上传</li>
+</ul>
+<hr>
+<h4>七、自测题（先自测，再对答案）</h4>
+<p>1. <code>.astype(int)</code> 和 <code>.round().astype(int)</code> 有什么区别？什么时候用哪个？</p>
+<p>2. <code>.between(18, 80)</code> 是否包含 18 和 80？如何排除边界值？</p>
+<p>3. Z-score 标准化后，均值和标准差分别是多少？为什么需要标准化？</p>
+<p>4. <code>pd.cut()</code> 和 <code>.between()</code> 都涉及区间，它们有什么区别？</p>
+<details>
+<summary>参考答案（先自测再看）</summary>
+<p>1. <strong>区别</strong>：</p>
+<ul>
+<li><code>.astype(int)</code> 直接截断小数：<code>89.9 → 89</code></li>
+<li><code>.round().astype(int)</code> 先四舍五入再转：<code>89.9 → 90.0 → 90</code></li>
+<li><strong>使用场景</strong>：题目明确说「取整」用 astype，说「四舍五入」用 round</li>
+</ul>
+<p>2. <strong>between() 默认包含边界</strong>：</p>
+<ul>
+<li><code>.between(18, 80)</code> 等价于 <code>18 ≤ x ≤ 80</code>（包含 18 和 80）</li>
+<li>排除边界：<code>.between(18, 80, inclusive='neither')</code> 等价于 <code>18 &lt; x &lt; 80</code></li>
+<li>其他选项：<code>inclusive='left'</code>（只含左边界）/ <code>'right'</code>（只含右边界）</li>
+</ul>
+<p>3. <strong>标准化后的特征</strong>：</p>
+<ul>
+<li>均值 = 0，标准差 = 1</li>
+<li><strong>原因</strong>：不同量纲的特征（年龄 20-60、金额 0-10000）变为同一尺度，机器学习模型才能公平比较</li>
+</ul>
+<p>4. <strong>区别</strong>：</p>
+<ul>
+<li><code>pd.cut()</code>：<strong>分类工具</strong>，给每个值打上区间标签（如「青年」/「中年」/「老年」）</li>
+<li><code>.between()</code>：<strong>过滤工具</strong>，返回布尔 Series，用于筛选行（保留 True 的行）</li>
+<li>记忆：cut=切分分类，between=范围过滤</li>
+</ul>
+</details>
+<hr>
+<h4>八、关联概念（已入知识库）</h4>
+<ul>
+<li><span class="wikilink">concepts/data-read-and-view</span> · <span class="wikilink">concepts/dropna-missing-values</span> · <span class="wikilink">concepts/astype-conversion</span> · <span class="wikilink">concepts/between-filter</span> · <span class="wikilink">concepts/z-score-normalization</span> · <span class="wikilink">concepts/pandas-cut-binning</span></li>
+</ul></div>
+<section class="concepts"><h2>知识点卡片</h2><section class="concept-card"><h3>astype-conversion</h3><div class="content"><h3>astype-conversion（数据类型转换）</h3>
+<ul>
+<li><strong>来源章节</strong>: 1.1.4</li>
+<li><strong>定义</strong>: 将 DataFrame 列转换为正确的数据类型（整型、浮点型、字符串）</li>
+<li><strong>用法</strong>:</li>
+<pre><code>  df[&#x27;Age&#x27;] = df[&#x27;Age&#x27;].astype(int)      # 浮点 → 整型
+  df[&#x27;Amount&#x27;] = df[&#x27;Amount&#x27;].astype(float)  # 字符串 → 浮点</code></pre>
+<li><strong>常用类型</strong>:</li>
+<li><code>int</code> / <code>'int64'</code>：整型</li>
+<li><code>float</code> / <code>'float64'</code>：浮点型</li>
+<li><code>str</code> / <code>'object'</code>：字符串</li>
+<li><strong>⚠️ 易错点</strong>:</li>
+<li>浮点转整型<strong>截断小数</strong>（不是四舍五入）：<code>89.9 → 89</code></li>
+<li>四舍五入需要先 <code>round()</code>：<code>df['col'].round().astype(int)</code></li>
+<li>转换前检查合法性：<code>'abc'.astype(float)</code> 会报错</li>
+<li><strong>关联</strong>: <span class="wikilink">dropna-missing-values</span> · <span class="wikilink">between-filter</span></li>
+</ul></div></section><section class="concept-card"><h3>between-filter</h3><div class="content"><h3>between-filter（异常值检测与过滤）</h3>
+<ul>
+<li><strong>来源章节</strong>: 1.1.4</li>
+<li><strong>定义</strong>: 使用 <code>.between()</code> 方法检查值是否在合理区间内，过滤异常数据</li>
+<li><strong>用法</strong>:</li>
+<pre><code>  valid = df[&#x27;Age&#x27;].between(18, 80)   # 返回布尔 Series
+  df_clean = df[valid]                # 保留 True 的行
+  # 多条件组合：
+  df[(df[&#x27;Age&#x27;].between(18, 80)) &amp; (df[&#x27;Amount&#x27;].between(0, 10000))]</code></pre>
+<li><strong>参数</strong>:</li>
+<li><code>left</code>, <code>right</code>：左右边界</li>
+<li><code>inclusive='both'</code>（默认）：包含两端 <code>[left, right]</code></li>
+<li><code>inclusive='neither'</code>：不含两端 <code>(left, right)</code></li>
+<li><code>inclusive='left'</code> / <code>'right'</code>：只含一端</li>
+<li><strong>对比 pd.cut()</strong>:</li>
+<li><code>between()</code> 用于<strong>过滤</strong>：保留范围内的行</li>
+<li><code>pd.cut()</code> 用于<strong>分类</strong>：给每行打上区间标签</li>
+<li><strong>⚠️ 易错点</strong>: 多条件组合必须每个条件都加括号：<code>(cond1) &amp; (cond2)</code></li>
+<li><strong>关联</strong>: <span class="wikilink">boolean-indexing</span> · <span class="wikilink">pandas-cut-binning</span></li>
+</ul></div></section><section class="concept-card"><h3>data-read-and-view</h3><div class="content"><h3>data-read-and-view（数据读取与查看）</h3>
+<ul>
+<li><strong>来源章节</strong>: 1.1.4</li>
+<li><strong>定义</strong>: 读取 CSV 文件到 DataFrame 并使用三件套查看数据概况</li>
+<li><strong>用法</strong>:</li>
+<pre><code>  data = pd.read_csv(&#x27;file.csv&#x27;)
+  data.head()       # 查看前 5 行
+  data.info()       # 列类型、缺失值
+  data.describe()   # 数值列统计</code></pre>
+<li><strong>三件套区别</strong>:</li>
+<li><code>.head()</code>：看数据长什么样（前 5 行）</li>
+<li><code>.info()</code>：看数据类型和缺失值</li>
+<li><code>.describe()</code>：看数值分布（均值、最大最小值、四分位数）</li>
+<li><strong>易错点</strong>: <code>.describe()</code> 只统计数值列（int/float），字符串列不会显示</li>
+<li><strong>关联</strong>: <span class="wikilink">dropna-missing-values</span> · <span class="wikilink">astype-conversion</span></li>
+</ul></div></section><section class="concept-card"><h3>dropna-missing-values</h3><div class="content"><h3>dropna-missing-values（缺失值处理）</h3>
+<ul>
+<li><strong>来源章节</strong>: 1.1.4</li>
+<li><strong>定义</strong>: 识别并删除包含缺失值（NaN）的记录，保证数据完整性</li>
+<li><strong>用法</strong>:</li>
+<pre><code>  data.isnull().sum()    # 统计每列缺失值数量
+  data = data.dropna()   # 删除任意列有 NaN 的行</code></pre>
+<li><strong>参数</strong>:</li>
+<li><code>how='any'</code>（默认）：任意列有 NaN 就删除该行</li>
+<li><code>how='all'</code>：所有列都是 NaN 才删除</li>
+<li><code>subset=['col1', 'col2']</code>：只检查指定列</li>
+<li><strong>对比填充方法</strong>:</li>
+<li><code>dropna()</code> 删除缺失值（数据量减少）</li>
+<li><code>fillna()</code> 填充缺失值（数据量不变，1.1.2 已学）</li>
+<li><strong>易错点</strong>: 删除后原 DataFrame 不变，需要重新赋值 <code>data = data.dropna()</code></li>
+<li><strong>关联</strong>: <span class="wikilink">fillna-method</span> · <span class="wikilink">data-read-and-view</span></li>
+</ul></div></section><section class="concept-card"><h3>z-score-normalization</h3><div class="content"><h3>z-score-normalization（数据标准化）</h3>
+<ul>
+<li><strong>来源章节</strong>: 1.1.4</li>
+<li><strong>定义</strong>: 使用 Z-score 公式 <code>(x - μ) / σ</code> 对数值型特征进行标准化处理</li>
+<li><strong>用法</strong>:</li>
+<pre><code>  mean = df[&#x27;Age&#x27;].mean()
+  std = df[&#x27;Age&#x27;].std()
+  df[&#x27;Age_std&#x27;] = (df[&#x27;Age&#x27;] - mean) / std</code></pre>
+<li><strong>公式</strong>: <code>z = (x - μ) / σ</code></li>
+<li><code>x</code>：原始值</li>
+<li><code>μ</code>：均值（mean）</li>
+<li><code>σ</code>：标准差（std）</li>
+<li><strong>标准化后的特征</strong>:</li>
+<li>均值 = 0，标准差 = 1</li>
+<li>z = 2 表示「比均值高 2 个标准差」</li>
+<li>z = -1 表示「比均值低 1 个标准差」</li>
+<li><strong>应用场景</strong>:</li>
+</ul>
+<p>1. 机器学习特征工程（不同量纲的特征统一尺度）</p>
+<p>2. 异常值检测（|z| &gt; 3 通常认为是异常值）</p>
+<p>3. 数据可视化（不同指标在同一图表对比）</p>
+<ul>
+<li><strong>⚠️ 易错点</strong>:</li>
+<li>新建列保留原始数据：<code>df['Age_std']</code> 而非覆盖 <code>df['Age']</code></li>
+<li>标准差为 0 时会除零错误（所有值相同的列）</li>
+<li><strong>关联</strong>: <span class="wikilink">astype-conversion</span> · <span class="wikilink">groupby-aggregation</span></li>
+</ul></div></section></section>
+</body>
+</html>

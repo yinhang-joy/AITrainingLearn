@@ -31,7 +31,15 @@ class ResetHandler(BaseHTTPRequestHandler):
             self.wfile.write(json.dumps({'success': False, 'error': f'{unit} 文件不存在'}, ensure_ascii=False).encode())
             return
         try:
-            subprocess.run(['git', 'restore', path], check=True, capture_output=True, text=True)
+            # 恢复到 enriched 但未填空的版本（第二个 commit，带任务要求但未做题）
+            result = subprocess.run(
+                ['git', 'log', '--reverse', '--format=%H', '--follow', '--', path],
+                check=True, capture_output=True, text=True
+            )
+            commits = result.stdout.strip().split('\n')
+            # 如果有多个 commit，用第二个（enriched 版本）；否则用第一个
+            target_commit = commits[1] if len(commits) > 1 else commits[0]
+            subprocess.run(['git', 'restore', '--source', target_commit, path], check=True, capture_output=True, text=True)
             self.send_response(200)
             self.send_header('Content-Type', 'application/json; charset=utf-8')
             self.send_header('Access-Control-Allow-Origin', '*')
