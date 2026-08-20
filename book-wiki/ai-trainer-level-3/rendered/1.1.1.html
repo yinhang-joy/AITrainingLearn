@@ -173,6 +173,35 @@ df.groupby(&#x27;BMI_类别&#x27;)[&#x27;高风险&#x27;].agg([&#x27;count&#x27;
 <li><strong>三步</strong>: <code>groupby('分组列')</code> → <code>['统计列']</code> → <code>.agg([...])</code> 或 <code>.mean()</code></li>
 <li><strong>易错点</strong>: 统计布尔列时 sum=True 的个数（高风险人数），mean=比例；count=行数（患者数）</li>
 <li><strong>关联</strong>: <span class="wikilink">pd-cut-binning</span> · <span class="wikilink">boolean-mean-ratio</span></li>
+</ul></div></section><section class="concept-card"><h3>np-where</h3><div class="content"><h3>np-where（条件赋值）</h3>
+<ul>
+<li><strong>来源章节</strong>: 1.1.1, 1.1.2</li>
+<li><strong>定义</strong>: 根据条件返回不同的值（类似三元运算符 <code>条件 ? 值1 : 值2</code>）</li>
+<li><strong>用法</strong>:</li>
+<pre><code>  np.where(条件, 条件为True时的值, 条件为False时的值)
+  
+  # 1.1.1 示例：字符串分类
+  df[&#x27;RiskLevel&#x27;] = np.where(df[&#x27;DaysInHospital&#x27;] &gt; 7, &#x27;高风险患者&#x27;, &#x27;低风险患者&#x27;)
+  
+  # 1.1.2 示例：布尔标记
+  df[&#x27;is_abnormal&#x27;] = np.where(
+      (df[&#x27;SensorType&#x27;] == &#x27;Temperature&#x27;) &amp; (df[&#x27;Value&#x27;] &gt; 50),
+      True, False
+  )</code></pre>
+<li><strong>与直接布尔赋值的区别</strong>:</li>
+<pre><code>  # 方式1：np.where（更明确）
+  df[&#x27;Anomaly&#x27;] = np.where(df[&#x27;Value&#x27;] &gt; 50, True, False)
+  
+  # 方式2：直接布尔表达式（结果相同，更简洁）
+  df[&#x27;Anomaly&#x27;] = df[&#x27;Value&#x27;] &gt; 50</code></pre>
+<li>当结果是 <strong>字符串/数字</strong> 时，必须用 <code>np.where</code></li>
+<li>当结果是 <strong>True/False</strong> 时，两种都可以，布尔表达式更简洁</li>
+<li><strong>多条件嵌套</strong>:</li>
+<pre><code>  # 三种情况：高/中/低
+  df[&#x27;Level&#x27;] = np.where(df[&#x27;Value&#x27;] &gt; 80, &#x27;高&#x27;,
+                np.where(df[&#x27;Value&#x27;] &gt; 50, &#x27;中&#x27;, &#x27;低&#x27;))</code></pre>
+<li><strong>⚠️ 易错点</strong>: 复杂条件必须加括号（和布尔索引一样）</li>
+<li><strong>关联</strong>: <span class="wikilink">boolean-column-assignment</span> · <span class="wikilink">boolean-indexing</span></li>
 </ul></div></section><section class="concept-card"><h3>pandas-read-csv</h3><div class="content"><h3>pandas-read-csv</h3>
 <ul>
 <li><strong>来源章节</strong>: 1.1.1</li>

@@ -264,6 +264,23 @@ df.to_csv(&#x27;cleaned.csv&#x27;, index=False)</code></pre>
 <li>❌ <code>df['A'] &gt; 10 &amp; df['B'] &lt; 5</code> 逻辑错误</li>
 <li>✅ <code>(df['A'] &gt; 10) &amp; (df['B'] &lt; 5)</code> 正确</li>
 <li><strong>关联</strong>: <span class="wikilink">boolean-indexing</span> · <span class="wikilink">boolean-mean-ratio</span></li>
+</ul></div></section><section class="concept-card"><h3>drop-columns</h3><div class="content"><h3>drop-columns（删除指定列）</h3>
+<ul>
+<li><strong>来源章节</strong>: 1.1.2</li>
+<li><strong>定义</strong>: 删除 DataFrame 中的指定列（无论有无缺失值）</li>
+<li><strong>用法</strong>:</li>
+<pre><code>  df.drop(columns=[&#x27;col1&#x27;, &#x27;col2&#x27;])     # 删除指定列
+  df.drop([&#x27;col1&#x27;, &#x27;col2&#x27;], axis=1)     # 旧写法（axis=1 表示列）
+  df.drop(index=[0, 1, 2])              # 删除指定行</code></pre>
+<li><strong>与 <code>.dropna()</code> 的区别</strong>:</li>
+<li><code>.drop(columns=[...])</code> 删除 <strong>你指定的</strong> 列（主动删除）</li>
+<li><code>.dropna()</code> 删除 <strong>含缺失值（NaN）</strong> 的行/列（自动找 NaN）</li>
+<li><code>.dropna()</code> <strong>没有</strong> <code>columns</code> 参数！</li>
+<li><strong>⚠️ 易错点</strong>:</li>
+<li>❌ <code>df.dropna(columns=['col'])</code> 语法错误（dropna 没有 columns 参数）</li>
+<li>✅ <code>df.drop(columns=['col'])</code> 删除指定列</li>
+<li>✅ <code>df.dropna(subset=['col'])</code> 删除该列为 NaN 的行</li>
+<li><strong>关联</strong>: <span class="wikilink">fillna-method</span> · <span class="wikilink">to-csv</span></li>
 </ul></div></section><section class="concept-card"><h3>fillna-method</h3><div class="content"><h3>fillna-method（缺失值填充）</h3>
 <ul>
 <li><strong>来源章节</strong>: 1.1.2</li>
