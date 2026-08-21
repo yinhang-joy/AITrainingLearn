@@ -347,13 +347,14 @@ def main() -> None:
                 "txt": "标签",
             }.get(ext, "文件")
             if ext == "ipynb":
-                # 含填空标记的是练习，否则是 enrich 生成的资料型笔记本
+                # 检查是否有代码单元格（cell_type == "code"）
                 try:
                     nb = json.load(open(os.path.join(d, f), encoding="utf-8"))
-                    text = "".join(
-                        "".join(c.get("source", [])) for c in nb["cells"]
+                    has_code = any(
+                        c.get("cell_type") == "code"
+                        for c in nb.get("cells", [])
                     )
-                    role = "练习" if "__________" in text else "资料"
+                    role = "练习" if has_code else "资料"
                 except Exception:
                     role = "练习"
             files.append((f, role))
