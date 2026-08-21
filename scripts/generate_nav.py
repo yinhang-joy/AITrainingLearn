@@ -281,10 +281,10 @@ def load_learning_materials() -> dict:
 def build_card(unit: str, title: str, files, learning=None) -> str:
     links, previews, jbtns = [], [], []
 
-    # 判断题目类型：有 ipynb 练习文件是代码题，否则是主观题
-    has_ipynb = any(f.endswith(".ipynb") for f, _ in files)
-    task_type = "代码练习" if has_ipynb else "主观题"
-    task_class = "code-task" if has_ipynb else "essay-task"
+    # 判断题目类型：有"练习"角色的 ipynb 是代码题，否则是主观题
+    has_exercise = any(role == "练习" for f, role in files)
+    task_type = "代码练习" if has_exercise else "主观题"
+    task_class = "code-task" if has_exercise else "essay-task"
 
     if learning and "rendered_path" in learning:
         _, ltitle, _ = learning["lecture"]
@@ -295,7 +295,7 @@ def build_card(unit: str, title: str, files, learning=None) -> str:
         )
     for f, role in files:
         rel = os.path.join(MAT, unit, f).replace("\\", "/")
-        if f.endswith(".ipynb"):
+        if f.endswith(".ipynb") and role == "练习":
             jbtns.append(
                 f'<a href="{jlab_url(rel)}" target="_blank" class="jbtn">在 Jupyter 打开</a>'
             )
@@ -309,7 +309,7 @@ def build_card(unit: str, title: str, files, learning=None) -> str:
             f'<a href="{html.escape(rel)}" target="_blank" class="file" '
             f'title="{html.escape(rel)}">{role}<span class="fn">{html.escape(f)}</span></a>'
         )
-    if has_ipynb:
+    if has_exercise:
         jbtns.append(
             f'<button class="jbtn reset" onclick="resetNotebook(\'{unit}\')">🔄 重置</button>'
         )
