@@ -280,6 +280,12 @@ def load_learning_materials() -> dict:
 
 def build_card(unit: str, title: str, files, learning=None) -> str:
     links, previews, jbtns = [], [], []
+
+    # 判断题目类型：有 ipynb 练习文件是代码题，否则是主观题
+    has_ipynb = any(f.endswith(".ipynb") for f, _ in files)
+    task_type = "代码练习" if has_ipynb else "主观题"
+    task_class = "code-task" if has_ipynb else "essay-task"
+
     if learning and "rendered_path" in learning:
         _, ltitle, _ = learning["lecture"]
         rpath = learning["rendered_path"]
@@ -287,11 +293,9 @@ def build_card(unit: str, title: str, files, learning=None) -> str:
             f'<a href="{html.escape(rpath)}" target="_blank" class="file lect" '
             f'title="讲义+知识点完整页面">📖 讲义<span class="fn">{html.escape(ltitle)}</span></a>'
         )
-    has_ipynb = False
     for f, role in files:
         rel = os.path.join(MAT, unit, f).replace("\\", "/")
         if f.endswith(".ipynb"):
-            has_ipynb = True
             jbtns.append(
                 f'<a href="{jlab_url(rel)}" target="_blank" class="jbtn">在 Jupyter 打开</a>'
             )
@@ -310,8 +314,8 @@ def build_card(unit: str, title: str, files, learning=None) -> str:
             f'<button class="jbtn reset" onclick="resetNotebook(\'{unit}\')">🔄 重置</button>'
         )
     jrow = f'<div class="jrow">{"".join(jbtns)}</div>' if jbtns else ""
-    return f"""<section class="card">
-      <div class="card-head"><span class="no">{unit}</span><h3>{html.escape(title)}</h3></div>
+    return f"""<section class="card {task_class}">
+      <div class="card-head"><span class="no">{unit}</span><h3>{html.escape(title)}</h3><span class="task-type">{task_type}</span></div>
       <div class="links">{"".join(links)}</div>
       {jrow}
       {"".join(previews)}
@@ -386,10 +390,19 @@ h1 {{ font-size:22px; }}
 .tip {{ color:var(--muted); margin:6px 0 20px; font-size:13px; }}
 .chapter {{ max-width:1200px; margin:28px auto 12px; font-size:16px; color:var(--muted); border-left:3px solid var(--accent); padding-left:10px; }}
 .grid {{ max-width:1200px; margin:0 auto; display:grid; grid-template-columns:repeat(auto-fill,minmax(360px,1fr)); gap:14px; }}
-.card {{ background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px 16px; }}
-.card-head {{ display:flex; align-items:baseline; gap:10px; margin-bottom:10px; }}
+.card {{ background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px 16px; position:relative; }}
+.card.code-task {{ border-left:3px solid #10b981; }}
+.card.essay-task {{ border-left:3px solid #f59e0b; }}
+.card-head {{ display:flex; align-items:baseline; gap:10px; margin-bottom:10px; flex-wrap:wrap; }}
 .no {{ background:var(--chip); color:var(--accent); border-radius:6px; padding:2px 8px; font-weight:700; white-space:nowrap; }}
-h3 {{ font-size:14px; font-weight:600; }}
+.task-type {{ background:var(--chip); border-radius:6px; padding:2px 8px; font-size:11px; font-weight:600; white-space:nowrap; }}
+.code-task .task-type {{ color:#10b981; background:#d1fae5; }}
+.essay-task .task-type {{ color:#f59e0b; background:#fef3c7; }}
+@media (prefers-color-scheme: dark) {{
+  .code-task .task-type {{ color:#34d399; background:#064e3b; }}
+  .essay-task .task-type {{ color:#fbbf24; background:#78350f; }}
+}}
+h3 {{ font-size:14px; font-weight:600; flex:1; }}
 .links {{ display:flex; flex-wrap:wrap; gap:6px; }}
 .file {{ text-decoration:none; color:var(--fg); border:1px solid var(--line); border-radius:6px; padding:3px 8px; font-size:12px; display:inline-flex; align-items:baseline; gap:6px; }}
 .file:hover {{ border-color:var(--accent); }}
