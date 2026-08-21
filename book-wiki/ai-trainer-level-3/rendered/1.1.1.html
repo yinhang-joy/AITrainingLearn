@@ -229,16 +229,6 @@ df.groupby(&#x27;BMI_类别&#x27;)[&#x27;高风险&#x27;].agg([&#x27;count&#x27;
 <li><code>pd.cut()</code> 用于<strong>分类</strong>：给每个值打上区间标签</li>
 <li><code>.between()</code> 用于<strong>过滤</strong>：返回布尔 Series 筛选行</li>
 <li><strong>关联</strong>: <span class="wikilink">groupby-aggregation</span> · <span class="wikilink">between-filter</span> · <span class="wikilink">boolean-indexing</span></li>
-</ul></div></section><section class="concept-card"><h3>pandas-read-csv</h3><div class="content"><h3>pandas-read-csv</h3>
-<ul>
-<li><strong>来源章节</strong>: 1.1.1</li>
-<li><strong>定义</strong>: 用 pandas 把 CSV 文件读成 DataFrame（表格对象），所有分析的第一步</li>
-<li><strong>用法</strong>:</li>
-<pre><code>  df = pd.read_csv(&#x27;patient_data.csv&#x27;)
-  df.head()   # 前 5 行
-  df.info()   # 列名/类型/缺失值</code></pre>
-<li><strong>易错点</strong>: 读入后先看数据再动手；文件路径考试已给</li>
-<li><strong>关联</strong>: <span class="wikilink">boolean-indexing</span> · <span class="wikilink">groupby-aggregation</span></li>
 </ul></div></section><section class="concept-card"><h3>pd-cut-binning</h3><div class="content"><h3>pd-cut-binning（区间切分）</h3>
 <ul>
 <li><strong>来源章节</strong>: 1.1.1</li>

@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>2.1.4 医疗研究数据清洗和标注设计</title>
+<style>
+:root { --bg:#fff; --fg:#1a1a1a; --line:#e5e5e5; --muted:#737373; --accent:#2563eb; --chip:#f5f5f5; }
+@media (prefers-color-scheme:dark) { :root:not([data-theme="light"]) { --bg:#0a0a0a; --fg:#ededed; --line:#262626; --muted:#a3a3a3; --accent:#60a5fa; --chip:#1a1a1a; } }
+:root[data-theme="dark"] { --bg:#0a0a0a; --fg:#ededed; --line:#262626; --muted:#a3a3a3; --accent:#60a5fa; --chip:#1a1a1a; }
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:var(--bg); color:var(--fg); font-family:system-ui,-apple-system,sans-serif; line-height:1.6; padding:20px; max-width:900px; margin:0 auto; }
+h1 { font-size:24px; margin:0 0 20px; padding-bottom:10px; border-bottom:2px solid var(--line); }
+h2 { font-size:20px; margin:24px 0 12px; color:var(--accent); }
+h3 { font-size:17px; margin:16px 0 8px; }
+h4 { font-size:15px; margin:12px 0 6px; }
+h5 { font-size:14px; margin:10px 0 4px; }
+p { margin:8px 0; }
+ul { margin:8px 0 8px 24px; }
+li { margin:3px 0; }
+pre { background:var(--chip); border:1px solid var(--line); border-radius:8px; padding:12px; overflow-x:auto; margin:12px 0; }
+code { font-family:Consolas,Monaco,monospace; font-size:13px; }
+p code { background:var(--chip); padding:2px 6px; border-radius:4px; }
+table { border-collapse:collapse; margin:12px 0; font-size:14px; width:100%; }
+th, td { border:1px solid var(--line); padding:6px 12px; text-align:left; }
+th { background:var(--chip); font-weight:600; }
+blockquote { border-left:4px solid var(--accent); margin:12px 0; padding:4px 14px; color:var(--muted); background:var(--chip); }
+hr { border:none; border-top:1px solid var(--line); margin:20px 0; }
+details summary { cursor:pointer; color:var(--accent); font-weight:500; user-select:none; }
+.wikilink { color:var(--accent); }
+.concepts { margin-top:40px; padding-top:20px; border-top:2px solid var(--line); }
+.concept-card { border:1px solid var(--line); border-radius:8px; padding:16px; margin:16px 0; background:var(--chip); }
+.concept-card h3 { margin-top:0; color:#9333ea; }
+.content > *:first-child { margin-top:0; }
+.content > *:last-child { margin-bottom:0; }
+</style>
+</head>
+<body>
+<h1>2.1.4 医疗研究数据清洗和标注设计</h1>
+<div class="lecture-body"><h3>2.1.4 讲义：医疗研究数据清洗和标注设计</h3>
+<ul>
+<li><strong>日期</strong>: 2026-08-20</li>
+<li><strong>状态</strong>: 待讲解</li>
+<li><strong>数据</strong>: <code>medical_data.csv</code>（5441 行 × 22 列：病人ID / 年龄 / 性别 / 地区 / 就诊日期 / 疾病类型 / 诊断日期 / 疾病严重程度 / 治疗结果等）</li>
+<li><strong>考核时间</strong>: 20 分钟，机考</li>
+</ul>
+<hr>
+<h4>一、任务解读（拆题：中文 → pandas/sklearn 翻译表）</h4>
+<p><strong>核心思维：医疗数据清洗 = 数据加载 + 格式规范 + 异常清理 + 特征工程 + 可视化分析。</strong> 本任务涉及完整的数据预处理流程，从原始数据到可用于分析的清洗数据。</p>
+<table class='md'><thead><tr>
+<th>题目里的中文</th><th>翻译成 Python</th>
+</tr></thead><tbody>
+<tr><td>加载数据集（gbk 编码）</td><td><code>pd.read_csv(..., encoding='gbk')</code></td></tr>
+<tr><td>查看数据类型/结构</td><td><code>data.dtypes</code> / <code>data.info()</code></td></tr>
+<tr><td>空缺值数量</td><td><code>data.isnull().sum()</code></td></tr>
+<tr><td>日期格式规范化</td><td><code>pd.to_datetime(...)</code></td></tr>
+<tr><td>修改列名</td><td><code>data.rename(columns={...}, inplace=True)</code></td></tr>
+<tr><td>日期差值计算</td><td><code>(date2 - date1).dt.days</code></td></tr>
+<tr><td>删除不合理数据</td><td>布尔索引 <code>data[(条件1) &amp; (条件2) &amp; ...]</code></td></tr>
+<tr><td>删除重复值</td><td><code>data.drop_duplicates(inplace=True)</code></td></tr>
+<tr><td>归一化处理</td><td><code>MinMaxScaler().fit_transform(data[cols])</code></td></tr>
+<tr><td>分组统计 + 透视</td><td><code>groupby(...).value_counts().unstack()</code></td></tr>
+<tr><td>绘制柱状图</td><td><code>plt.bar(...)</code> 或 <code>df.plot.bar(...)</code></td></tr>
+<tr><td>绘制散点图</td><td><code>plt.scatter(...)</code></td></tr>
+<tr><td>保存清洗数据</td><td><code>data.to_csv(..., index=False)</code></td></tr>
+</tbody></table>
+<p>八个子任务：</p>
+<p>1. 加载数据并检查结构、类型、缺失值</p>
+<p>2. 规范日期格式、修改列名</p>
+<p>3. 计算诊断延迟和病程，删除不合理数据</p>
+<p>4. 删除重复值并记录数量</p>
+<p>5. 归一化年龄、体重、身高</p>
+<p>6. 统计疾病类型与治疗结果关系，绘制柱状图</p>
+<p>7. 分析年龄与疾病严重程度关系，绘制散点图</p>
+<p>8. 保存清洗后数据</p>
+<hr>
+<h4>二、知识点讲解</h4>
+<h5>① 数据加载与检查（任务 1）</h5>
+<pre><code># 加载时指定编码（医疗数据常含中文）
+data = pd.read_csv(&#x27;medical_data.csv&#x27;, encoding=&#x27;gbk&#x27;)
+
+# 三项基础检查
+print(data.dtypes)           # 每列数据类型（int64/object/float64等）
+print(data.info())           # 列名、非空值数量、内存占用
+print(data.isnull().sum())   # 每列缺失值数量</code></pre>
+<p><strong>为什么要检查</strong>：</p>
+<ul>
+<li><code>dtypes</code>：确认日期是否被识别为 object（字符串），需要转换</li>
+<li><code>info()</code>：快速了解数据规模和完整性</li>
+<li><code>isnull().sum()</code>：定位缺失值位置，决定填充策略</li>
+</ul>
+<blockquote><strong>考点</strong>：<code>encoding='gbk'</code> 不写会报 <code>UnicodeDecodeError</code>；医疗数据文件常用 gbk 编码。</blockquote>
+<h5>② 日期时间处理（任务 2）</h5>
+<pre><code># 规范日期格式（从字符串 → datetime64）
+data[&#x27;就诊日期&#x27;] = pd.to_datetime(data[&#x27;就诊日期&#x27;])
+data[&#x27;诊断日期&#x27;] = pd.to_datetime(data[&#x27;诊断日期&#x27;])
+
+# 修改列名
+data.rename(columns={&#x27;病人ID&#x27;: &#x27;患者ID&#x27;}, inplace=True)</code></pre>
+<p><strong><code>pd.to_datetime</code> 机制</strong>：</p>
+<ul>
+<li>自动识别多种格式：<code>2023-4-4</code> / <code>2023/04/04</code> / <code>Apr 4, 2023</code> 等</li>
+<li>转换后的类型是 <code>datetime64[ns]</code>，支持日期计算和 <code>.dt</code> 访问器</li>
+<li><code>inplace=True</code>：原地修改，不返回新 DataFrame</li>
+</ul>
+<h5>③ 日期差值计算与异常数据清理（任务 3）</h5>
+<pre><code>from datetime import datetime
+
+# 计算诊断延迟（单位：天）
+data[&#x27;诊断延迟&#x27;] = (data[&#x27;诊断日期&#x27;] - data[&#x27;就诊日期&#x27;]).dt.days
+
+# 计算病程（从诊断到当前日期）
+data[&#x27;病程&#x27;] = (datetime(2024, 9, 1) - data[&#x27;诊断日期&#x27;]).dt.days
+
+# 删除不合理数据：多条件布尔索引
+data = data[(data[&#x27;诊断延迟&#x27;] &gt;= 0) &amp;      # 诊断不能早于就诊
+            (data[&#x27;病程&#x27;] &gt; 0) &amp;           # 病程必须为正
+            (data[&#x27;年龄&#x27;] &lt; 120)]          # 年龄合理范围</code></pre>
+<p><strong>关键点</strong>：</p>
+<ul>
+<li><code>.dt.days</code>：从 Timedelta 对象提取天数（整数）</li>
+<li><code>&amp;</code> 连接多个条件：<strong>必须每个条件加括号</strong>（运算符优先级问题）</li>
+<li>布尔索引自动丢弃 False 行，返回清洗后的 DataFrame</li>
+</ul>
+<blockquote><strong>易错点</strong>：<code>data['诊断延迟'] &gt;= 0</code> 写成 <code>data['诊断延迟'] &gt; 0</code> 会丢掉当天诊断的合理数据。</blockquote>
+<h5>④ 重复值处理（任务 4）</h5>
+<pre><code>initial_rows = data.shape[0]              # 记录初始行数
+data.drop_duplicates(inplace=True)        # 删除完全重复的行
+deleted_rows = initial_rows - data.shape[0]
+
+print(f&#x27;删除的重复行数: {deleted_rows}&#x27;)</code></pre>
+<p><strong><code>drop_duplicates</code> 默认行为</strong>：</p>
+<ul>
+<li>比较所有列，只要有一列不同就保留</li>
+<li>默认保留第一次出现的行（<code>keep='first'</code>）</li>
+<li><code>subset=[...]</code> 可指定只比较特定列</li>
+</ul>
+<h5>⑤ 数据归一化（任务 5）</h5>
+<pre><code>from sklearn.preprocessing import MinMaxScaler
+
+scaler = MinMaxScaler()                        # 创建归一化器
+columns_to_normalize = [&#x27;年龄&#x27;, &#x27;体重&#x27;, &#x27;身高&#x27;]
+data[columns_to_normalize] = scaler.fit_transform(data[columns_to_normalize])</code></pre>
+<p><strong>MinMaxScaler 原理</strong>：</p>
+<ul>
+<li>将每列数据缩放到 [0, 1] 区间</li>
+<li>公式：<code>(x - min) / (max - min)</code></li>
+<li><code>fit_transform</code>：一步完成「学习最小/最大值」+「应用变换」</li>
+</ul>
+<p><strong>为什么要归一化</strong>：</p>
+<ul>
+<li>消除量纲影响（年龄 0-100，体重 40-100，身高 150-190）</li>
+<li>机器学习模型对数值范围敏感，归一化可加速收敛</li>
+</ul>
+<blockquote><strong>考点</strong>：归一化的列必须是数值型；如果有缺失值需先填充，否则结果为 NaN。</blockquote>
+<h5>⑥ 分组统计与可视化（任务 6）</h5>
+<pre><code># 统计：疾病类型 × 治疗结果 的分布
+treatment_outcome_distribution = data.groupby(&#x27;疾病类型&#x27;)[&#x27;治疗结果&#x27;].value_counts().unstack()
+
+# 绘制堆叠柱状图
+treatment_outcome_distribution.plot.bar(stacked=True)
+plt.title(&#x27;不同疾病类型的治疗结果分布&#x27;, fontproperties=my_font)
+plt.xlabel(&#x27;疾病类型&#x27;, fontproperties=my_font)
+plt.ylabel(&#x27;治疗结果数量&#x27;, fontproperties=my_font)
+plt.legend(prop=my_font)
+plt.show()</code></pre>
+<p><strong><code>groupby + value_counts + unstack</code> 组合拳</strong>：</p>
+<p>1. <code>groupby('疾病类型')</code>：按疾病分组</p>
+<p>2. <code>['治疗结果'].value_counts()</code>：每组内统计治疗结果频次</p>
+<p>3. <code>.unstack()</code>：把多级索引展开为透视表（行=疾病，列=治疗结果）</p>
+<p><strong>中文显示处理</strong>：</p>
+<pre><code>import matplotlib.font_manager as fm
+font_path = &#x27;C:/Windows/Fonts/simhei.ttf&#x27;
+my_font = fm.FontProperties(fname=font_path)
+plt.title(&#x27;标题&#x27;, fontproperties=my_font)  # 每个中文文本都需指定</code></pre>
+<blockquote><strong>易错点</strong>：忘记 <code>unstack()</code> 会导致数据格式不适合 <code>.plot.bar()</code>，报错 "No numeric data to plot"。</blockquote>
+<h5>⑦ 散点图分析（任务 7）</h5>
+<pre><code>plt.scatter(data[&#x27;年龄&#x27;], data[&#x27;疾病严重程度&#x27;])
+plt.title(&#x27;年龄和疾病严重程度的关系&#x27;, fontproperties=my_font)
+plt.xlabel(&#x27;年龄&#x27;, fontproperties=my_font)
+plt.ylabel(&#x27;疾病严重程度&#x27;, fontproperties=my_font)
+plt.show()</code></pre>
+<p><strong>散点图特点</strong>：</p>
+<ul>
+<li>用于分析两个连续变量的关系</li>
+<li>X 轴：年龄（数值型）</li>
+<li>Y 轴：疾病严重程度（可能是数值编码：0=不严重、1=轻度、2=中度、3=严重）</li>
+</ul>
+<p><strong>分析思路</strong>：观察点的分布，判断是否存在正相关/负相关/无关系。</p>
+<h5>⑧ 保存清洗数据（任务 8）</h5>
+<pre><code>data.to_csv(&#x27;2.1.4_cleaned_data.csv&#x27;, index=False)</code></pre>
+<p><strong><code>index=False</code></strong>：不保存行索引（通常是 0、1、2...），只保存数据本身。</p>
+<hr>
+<h4>三、完整数据处理流程（关键步骤）</h4>
+<pre><code># 1. 加载 + 检查
+data = pd.read_csv(&#x27;medical_data.csv&#x27;, encoding=&#x27;gbk&#x27;)
+print(data.info())
+
+# 2. 日期规范化 + 列名修改
+data[&#x27;就诊日期&#x27;] = pd.to_datetime(data[&#x27;就诊日期&#x27;])
+data[&#x27;诊断日期&#x27;] = pd.to_datetime(data[&#x27;诊断日期&#x27;])
+data.rename(columns={&#x27;病人ID&#x27;: &#x27;患者ID&#x27;}, inplace=True)
+
+# 3. 特征工程 + 异常清理
+data[&#x27;诊断延迟&#x27;] = (data[&#x27;诊断日期&#x27;] - data[&#x27;就诊日期&#x27;]).dt.days
+data[&#x27;病程&#x27;] = (datetime(2024, 9, 1) - data[&#x27;诊断日期&#x27;]).dt.days
+data = data[(data[&#x27;诊断延迟&#x27;] &gt;= 0) &amp; (data[&#x27;病程&#x27;] &gt; 0) &amp; (data[&#x27;年龄&#x27;] &lt; 120)]
+
+# 4. 去重
+data.drop_duplicates(inplace=True)
+
+# 5. 归一化
+from sklearn.preprocessing import MinMaxScaler
+scaler = MinMaxScaler()
+data[[&#x27;年龄&#x27;, &#x27;体重&#x27;, &#x27;身高&#x27;]] = scaler.fit_transform(data[[&#x27;年龄&#x27;, &#x27;体重&#x27;, &#x27;身高&#x27;]])
+
+# 6-7. 可视化分析
+# ... (见上方代码)
+
+# 8. 保存
+data.to_csv(&#x27;2.1.4_cleaned_data.csv&#x27;, index=False)</code></pre>
+<hr>
+<h4>四、考试注意事项（卷面要求）</h4>
+<ul>
+<li>20 分钟限时；ipynb <strong>只填空，勿增删改其他代码</strong></li>
+<li>运行后保存为 HTML：<code>File -&gt; Download as -&gt; HTML(.html)</code></li>
+<li>答题卷 <code>2.1.4.docx</code> 需填写：</li>
+<li><strong>数据清洗规范</strong>（2 分）：如「删除诊断日期早于就诊日期的记录」「年龄限制在 0-120 岁」</li>
+<li><strong>数据标注规范</strong>（3 分）：如「疾病严重程度统一为三级：轻度/中度/严重」「治疗结果分为治愈/好转/未愈/死亡」</li>
+<li>考生文件夹：桌面「准考证号+身份证号后六位」</li>
+<li>jupyter notebook 工作目录：<code>D:\jupyter_notebook</code></li>
+</ul>
+<hr>
+<h4>五、自测题（先自测，再对答案）</h4>
+<p>1. <code>pd.to_datetime()</code> 的作用是什么？为什么要把日期列从 object 转为 datetime64？</p>
+<p>2. <code>(data['诊断日期'] - data['就诊日期']).dt.days</code> 中 <code>.dt.days</code> 的作用是什么？去掉会怎样？</p>
+<p>3. <code>MinMaxScaler</code> 归一化后，原始数据的最小值和最大值分别变成多少？</p>
+<p>4. <code>groupby('疾病类型')['治疗结果'].value_counts().unstack()</code> 最终返回的是什么结构？</p>
+<p>5. 为什么绘图时每个中文文本都要加 <code>fontproperties=my_font</code>？</p>
+<details>
+<summary>参考答案（先自测再看）</summary>
+<p>1. 将字符串格式的日期转换为 pandas 的 datetime64 类型。转换后才能进行日期计算（如相减得 Timedelta）、提取年/月/日等操作；object 类型只能当普通字符串处理。</p>
+<p>2. <code>.dt.days</code> 从 Timedelta 对象中提取整数天数。去掉的话结果是 Timedelta 对象（如 <code>21 days</code>），无法直接用于数值计算和比较。</p>
+<p>3. 最小值变为 0，最大值变为 1。公式 <code>(x - min) / (max - min)</code> 保证了这一点。</p>
+<p>4. 返回一个 DataFrame（透视表）：行索引是疾病类型，列索引是治疗结果（如治愈/好转/未愈），单元格值是对应组合的数量。</p>
+<p>5. matplotlib 默认不支持中文，会显示为方块。必须通过 <code>FontProperties</code> 加载中文字体文件（如黑体 simhei.ttf），并对每个中文元素（标题、标签、图例）单独指定字体。</p>
+</details>
+<hr>
+<h4>六、数据清洗与标注规范（答题卷参考）</h4>
+<h5>数据清洗规范示例（任选 2 点，每点 1 分）</h5>
+<p>1. <strong>日期一致性</strong>：就诊日期不得晚于诊断日期，诊断日期不得晚于当前日期</p>
+<p>2. <strong>年龄合理性</strong>：年龄限制在 0-120 岁范围内</p>
+<p>3. <strong>重复记录</strong>：删除患者ID、就诊日期、疾病类型完全相同的重复记录</p>
+<p>4. <strong>缺失值处理</strong>：关键字段（患者ID、年龄、疾病类型）不允许缺失，缺失则删除该行</p>
+<p>5. <strong>数值范围</strong>：体重 20-200 kg，身高 50-250 cm，超出范围视为异常数据</p>
+<h5>数据标注规范示例（任选 3 点，每点 1 分）</h5>
+<p>1. <strong>疾病类型标准化</strong>：统一疾病名称（如「感冒」与「流感」的区分），使用医学标准术语</p>
+<p>2. <strong>疾病严重程度分级</strong>：采用三级分类（轻度/中度/严重）或数值编码（0/1/2）</p>
+<p>3. <strong>治疗结果分类</strong>：统一为四类（治愈/好转/未愈/死亡），避免模糊描述</p>
+<p>4. <strong>地区编码规范</strong>：统一为省级或市级行政区划，避免重复（如「北京」vs「北京市」）</p>
+<p>5. <strong>性别编码</strong>：统一为「男/女」或数值编码（0/1），不接受空值或其他描述</p>
+<hr>
+<h4>七、关联概念（已入知识库）</h4>
+<ul>
+<li><span class="wikilink">concepts/pandas-data-loading-inspection</span> · <span class="wikilink">concepts/datetime-processing</span> · <span class="wikilink">concepts/data-cleaning-operations</span> · <span class="wikilink">concepts/minmax-normalization</span> · <span class="wikilink">concepts/groupby-value-counts-unstack</span> · <span class="wikilink">concepts/matplotlib-chinese-font</span></li>
+</ul></div>
+
+</body>
+</html>

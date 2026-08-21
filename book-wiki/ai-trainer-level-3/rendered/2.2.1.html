@@ -1,0 +1,849 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>2.2.1 智能信用评分Logistic回归模型开发与测试</title>
+<style>
+:root { --bg:#fff; --fg:#1a1a1a; --line:#e5e5e5; --muted:#737373; --accent:#2563eb; --chip:#f5f5f5; }
+@media (prefers-color-scheme:dark) { :root:not([data-theme="light"]) { --bg:#0a0a0a; --fg:#ededed; --line:#262626; --muted:#a3a3a3; --accent:#60a5fa; --chip:#1a1a1a; } }
+:root[data-theme="dark"] { --bg:#0a0a0a; --fg:#ededed; --line:#262626; --muted:#a3a3a3; --accent:#60a5fa; --chip:#1a1a1a; }
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:var(--bg); color:var(--fg); font-family:system-ui,-apple-system,sans-serif; line-height:1.6; padding:20px; max-width:900px; margin:0 auto; }
+h1 { font-size:24px; margin:0 0 20px; padding-bottom:10px; border-bottom:2px solid var(--line); }
+h2 { font-size:20px; margin:24px 0 12px; color:var(--accent); }
+h3 { font-size:17px; margin:16px 0 8px; }
+h4 { font-size:15px; margin:12px 0 6px; }
+h5 { font-size:14px; margin:10px 0 4px; }
+p { margin:8px 0; }
+ul { margin:8px 0 8px 24px; }
+li { margin:3px 0; }
+pre { background:var(--chip); border:1px solid var(--line); border-radius:8px; padding:12px; overflow-x:auto; margin:12px 0; }
+code { font-family:Consolas,Monaco,monospace; font-size:13px; }
+p code { background:var(--chip); padding:2px 6px; border-radius:4px; }
+table { border-collapse:collapse; margin:12px 0; font-size:14px; width:100%; }
+th, td { border:1px solid var(--line); padding:6px 12px; text-align:left; }
+th { background:var(--chip); font-weight:600; }
+blockquote { border-left:4px solid var(--accent); margin:12px 0; padding:4px 14px; color:var(--muted); background:var(--chip); }
+hr { border:none; border-top:1px solid var(--line); margin:20px 0; }
+details summary { cursor:pointer; color:var(--accent); font-weight:500; user-select:none; }
+.wikilink { color:var(--accent); }
+.concepts { margin-top:40px; padding-top:20px; border-top:2px solid var(--line); }
+.concept-card { border:1px solid var(--line); border-radius:8px; padding:16px; margin:16px 0; background:var(--chip); }
+.concept-card h3 { margin-top:0; color:#9333ea; }
+.content > *:first-child { margin-top:0; }
+.content > *:last-child { margin-bottom:0; }
+</style>
+</head>
+<body>
+<h1>2.2.1 智能信用评分Logistic回归模型开发与测试</h1>
+<div class="lecture-body"><h3>2.2.1 讲义：智能信用评分Logistic回归模型开发与测试</h3>
+<ul>
+<li><strong>日期</strong>: 2026-08-20</li>
+<li><strong>状态</strong>: 待讲解 → 待自测 → 待做题（ipynb）</li>
+<li><strong>数据</strong>: <code>finance数据集.csv</code>（12 列，含信用评分特征：年龄、月收入、债务比率、逾期次数等）</li>
+<li><strong>考核时间</strong>: 20 分钟，机考</li>
+</ul>
+<hr>
+<h4>一、场景介绍：信用评分模型是什么？</h4>
+<p><strong>业务背景</strong>：互联网金融中，平台需要评估贷款申请人的违约风险。传统靠人工审核，效率低且主观性强；AI 信用评分模型通过历史数据（收入、逾期记录、债务比率等）自动计算风险分值，决定是否批准贷款。</p>
+<p><strong>核心任务</strong>：根据客户的 11 个特征（年龄、月收入、逾期次数等），预测 <code>SeriousDlqin2yrs</code>（是否在过去两年出现严重拖欠）：</p>
+<ul>
+<li><strong>0</strong> = 信用良好（正常还款）</li>
+<li><strong>1</strong> = 高风险（严重拖欠）</li>
+</ul>
+<p><strong>技术选型</strong>：Logistic 回归 —— 二分类问题的经典算法，输出 0~1 概率值，可解释性强（金融行业需要向监管部门说明决策依据）。</p>
+<hr>
+<h4>二、数据处理流程（五步走）</h4>
+<pre><code># 流程概览
+数据加载 → 特征选择 → 训练集划分 → 模型训练 → 预测与评估
+         ↓                                ↓
+      剔除无关列                  类别不平衡处理（SMOTE）</code></pre>
+<h5>核心流程详解</h5>
+<table class='md'><thead><tr>
+<th>步骤</th><th>操作</th><th>代码关键点</th>
+</tr></thead><tbody>
+<tr><td>① 加载数据</td><td><code>pd.read_csv('finance数据集.csv')</code></td><td>读取 12 列数据</td></tr>
+<tr><td>② 特征选择</td><td>剔除 <code>Unnamed: 0</code>（索引号）和 <code>SeriousDlqin2yrs</code>（目标变量）</td><td><code>drop(['列名'], axis=1)</code></td></tr>
+<tr><td>③ 划分数据集</td><td>80% 训练，20% 测试</td><td><code>train_test_split(..., test_size=0.2)</code></td></tr>
+<tr><td>④ 模型训练</td><td>Logistic 回归，最大迭代 1000 次</td><td><code>LogisticRegression(max_iter=1000)</code></td></tr>
+<tr><td>⑤ 评估 + 改进</td><td>生成分类报告 → SMOTE 处理不平衡 → 重新训练</td><td><code>classification_report()</code> + <code>SMOTE()</code></td></tr>
+</tbody></table>
+<p><strong>⚠️ 本任务的特殊挑战</strong>：数据集中「严重拖欠」样本极少（可能 &lt;10%），模型容易偏向多数类（预测全是 0），需要 SMOTE 过采样纠正。</p>
+<hr>
+<h4>三、知识点详解</h4>
+<h5>① 数据加载与预处理</h5>
+<pre><code># 1. 加载数据
+data = pd.read_csv(&#x27;finance数据集.csv&#x27;)
+print(data.head())  # 验证：显示前 5 行
+
+# 2. 特征工程：分离 X（特征）和 y（目标）
+X = data.drop([&#x27;SeriousDlqin2yrs&#x27;, &#x27;Unnamed: 0&#x27;], axis=1)
+y = data[&#x27;SeriousDlqin2yrs&#x27;]</code></pre>
+<p><strong>知识点</strong>：</p>
+<ul>
+<li><code>drop()</code> 的 <code>axis=1</code> 表示删除<strong>列</strong>（<code>axis=0</code> 删行）</li>
+<li><strong>为什么删 <code>Unnamed: 0</code>？</strong> 它是行索引编号，对预测无意义（类似身份证号，与信用无关）</li>
+<li><strong>特征列有哪些？</strong> 年龄、月收入、逾期次数、债务比率等 9 个变量</li>
+</ul>
+<blockquote>📖 详见 <span class="wikilink">数据加载与预处理</span></blockquote>
+<hr>
+<h5>② 数据集划分</h5>
+<pre><code>X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42
+)</code></pre>
+<p><strong>三个参数</strong>：</p>
+<ul>
+<li><code>X, y</code>：特征和目标变量</li>
+<li><code>test_size=0.2</code>：20% 测试集，80% 训练集（常见比例：8:2 或 7:3）</li>
+<li><code>random_state=42</code>：<strong>固定随机种子</strong>，确保每次运行划分结果相同（考试必加！否则结果每次都变）</li>
+</ul>
+<p><strong>为什么要划分？</strong> 训练集训练模型，测试集模拟真实场景评估性能（防止「背答案」—— 过拟合）。</p>
+<blockquote>📖 详见 <span class="wikilink">数据集划分</span></blockquote>
+<hr>
+<h5>③ Logistic 回归模型</h5>
+<pre><code># 1. 创建模型（最大迭代 1000 次）
+model = LogisticRegression(max_iter=1000)
+
+# 2. 训练模型
+model.fit(X_train, y_train)
+
+# 3. 预测
+y_pred = model.predict(X_test)</code></pre>
+<p><strong>核心原理</strong>：</p>
+<ul>
+<li>Logistic 回归不是「回归」而是<strong>分类算法</strong>，通过 Sigmoid 函数把线性结果压缩到 0~1：</li>
+<pre><code>  P(y=1) = 1 / (1 + e^(-z))   # z = w1*x1 + w2*x2 + ... + b
+  概率 ≥ 0.5 → 预测为 1（高风险）
+  概率 &lt; 0.5 → 预测为 0（低风险）</code></pre>
+</ul>
+<p><strong>参数解释</strong>：</p>
+<ul>
+<li><code>max_iter=1000</code>：最多迭代 1000 次（默认 100 次可能不够，导致「模型未收敛」警告）</li>
+</ul>
+<p><strong>为什么适合信用评分？</strong></p>
+<p>1. 输出概率值（0.8 表示 80% 可能违约），可设置不同风险阈值</p>
+<p>2. 可解释性强：每个特征有权重系数，能看出「月收入低」「逾期多」对风险的影响</p>
+<blockquote>📖 详见 <span class="wikilink">Logistic回归模型</span></blockquote>
+<hr>
+<h5>④ 模型持久化与预测</h5>
+<pre><code># 保存模型（持久化）
+import pickle
+with open(&#x27;2.2.1_model.pkl&#x27;, &#x27;wb&#x27;) as file:
+    pickle.dump(model, file)
+
+# 预测并保存结果
+y_pred = model.predict(X_test)
+pd.DataFrame(y_pred, columns=[&#x27;预测结果&#x27;]).to_csv(&#x27;2.2.1_results.txt&#x27;, index=False)</code></pre>
+<p><strong>知识点</strong>：</p>
+<ul>
+<li><code>pickle.dump(对象, 文件)</code>：把训练好的模型保存成 <code>.pkl</code> 文件，下次直接加载不用重新训练</li>
+<li><strong>为什么要保存模型？</strong> 训练可能花几分钟/几小时，生产环境需要快速加载预测</li>
+<li><code>index=False</code>：保存 CSV 时不要额外的索引列（考试要求，否则多一列序号）</li>
+</ul>
+<blockquote>📖 详见 <span class="wikilink">模型持久化与预测</span></blockquote>
+<hr>
+<h5>⑤ 模型评估</h5>
+<pre><code>from sklearn.metrics import classification_report
+
+# 生成详细报告
+report = classification_report(y_test, y_pred, zero_division=1)
+print(report)
+
+# 计算总体准确率
+accuracy = model.score(X_test, y_test)
+print(f&quot;模型准确率: {accuracy:.2f}&quot;)</code></pre>
+<p><strong>分类报告指标</strong>（重点！答题卷要填）：</p>
+<table class='md'><thead><tr>
+<th>指标</th><th>含义</th><th>计算公式</th>
+</tr></thead><tbody>
+<tr><td><strong>precision</strong>（精确率）</td><td>预测为 1 的里面，真的是 1 的比例</td><td>TP / (TP + FP)</td></tr>
+<tr><td><strong>recall</strong>（召回率）</td><td>真正是 1 的里面，被预测出来的比例</td><td>TP / (TP + FN)</td></tr>
+<tr><td><strong>f1-score</strong></td><td>精确率和召回率的调和平均</td><td>2 × (P × R) / (P + R)</td></tr>
+<tr><td><strong>support</strong></td><td>该类别在测试集的真实数量</td><td>—</td></tr>
+</tbody></table>
+<p><strong>混淆矩阵术语</strong>：</p>
+<ul>
+<li><strong>TP</strong>（True Positive）：真拖欠，预测拖欠 ✅</li>
+<li><strong>FP</strong>（False Positive）：不拖欠，预测拖欠 ❌（误杀好客户）</li>
+<li><strong>FN</strong>（False Negative）：真拖欠，预测不拖欠 ❌（放过坏客户）</li>
+<li><strong>TN</strong>（True Negative）：不拖欠，预测不拖欠 ✅</li>
+</ul>
+<p><strong>业务理解</strong>：</p>
+<ul>
+<li><strong>精确率低</strong> → 误伤好客户多（拒绝了本该通过的贷款）</li>
+<li><strong>召回率低</strong> → 放过坏客户多（批准了会违约的贷款，银行损失）</li>
+</ul>
+<blockquote>📖 详见 <span class="wikilink">模型评估</span></blockquote>
+<hr>
+<h5>⑥ 类别不平衡处理（SMOTE）</h5>
+<p><strong>问题</strong>：金融数据中，违约样本通常 &lt;10%（大多数人正常还款）。模型训练时倾向于「猜多数类」—— 全预测为 0，准确率虚高（90%），但<strong>召回率极低</strong>（真正的违约几乎检测不到）。</p>
+<p><strong>解决方案</strong>：SMOTE（Synthetic Minority Over-sampling Technique）—— 为少数类（1）生成合成样本，让数据平衡。</p>
+<pre><code>from imblearn.over_sampling import SMOTE
+
+# 1. 对训练集过采样（⚠️ 只对训练集，不动测试集！）
+smote = SMOTE(random_state=42)
+X_resampled, y_resampled = smote.fit_resample(X_train, y_train)
+
+# 2. 用新数据重新训练
+model.fit(X_resampled, y_resampled)
+
+# 3. 预测并评估
+y_pred_resampled = model.predict(X_test)
+accuracy_resampled = model.score(X_test, y_test)</code></pre>
+<p><strong>SMOTE 原理</strong>（面试可能问）：</p>
+<p>1. 找到少数类样本的 k 个最近邻</p>
+<p>2. 在样本和邻居之间的连线上随机生成新样本</p>
+<p>3. 增加少数类数量，使两类比例接近 1:1</p>
+<p><strong>效果对比</strong>：</p>
+<ul>
+<li><strong>SMOTE 前</strong>：准确率 93%，但 recall(1) 只有 0.20（漏检 80% 违约）</li>
+<li><strong>SMOTE 后</strong>：准确率可能降至 85%，但 recall(1) 提升到 0.65（漏检降至 35%）</li>
+</ul>
+<p><strong>⚠️ 为什么不对测试集 SMOTE？</strong> 测试集要模拟真实数据分布，如果也平衡了，就失去评估意义。</p>
+<blockquote>📖 详见 <span class="wikilink">类别不平衡处理</span></blockquote>
+<hr>
+<h4>四、完整代码串讲（带注释）</h4>
+<pre><code>import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LogisticRegression
+import pickle
+from sklearn.metrics import classification_report
+from imblearn.over_sampling import SMOTE
+
+# === 第一部分：数据准备 ===
+data = pd.read_csv(&#x27;finance数据集.csv&#x27;)
+print(data.head())  # 考试要求：显示前 5 行
+
+X = data.drop([&#x27;SeriousDlqin2yrs&#x27;, &#x27;Unnamed: 0&#x27;], axis=1)  # 特征
+y = data[&#x27;SeriousDlqin2yrs&#x27;]  # 目标
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42
+)
+
+# === 第二部分：模型训练与评估 ===
+model = LogisticRegression(max_iter=1000)
+model.fit(X_train, y_train)
+
+# 保存模型
+with open(&#x27;2.2.1_model.pkl&#x27;, &#x27;wb&#x27;) as file:
+    pickle.dump(model, file)
+
+# 预测
+y_pred = model.predict(X_test)
+pd.DataFrame(y_pred, columns=[&#x27;预测结果&#x27;]).to_csv(&#x27;2.2.1_results.txt&#x27;, index=False)
+
+# 生成报告
+report = classification_report(y_test, y_pred, zero_division=1)
+with open(&#x27;2.2.1_report.txt&#x27;, &#x27;w&#x27;) as file:
+    file.write(report)
+
+accuracy = model.score(X_test, y_test)
+print(f&quot;模型准确率: {accuracy:.2f}&quot;)
+
+# === 第三部分：SMOTE 改进 ===
+smote = SMOTE(random_state=42)
+X_resampled, y_resampled = smote.fit_resample(X_train, y_train)
+
+model.fit(X_resampled, y_resampled)
+y_pred_resampled = model.predict(X_test)
+
+pd.DataFrame(y_pred_resampled, columns=[&#x27;预测结果&#x27;]).to_csv(&#x27;2.2.1_results_xg.txt&#x27;, index=False)
+
+report_resampled = classification_report(y_test, y_pred_resampled, zero_division=1)
+with open(&#x27;2.2.1_report_xg.txt&#x27;, &#x27;w&#x27;) as file:
+    file.write(report_resampled)
+
+accuracy_resampled = model.score(X_test, y_test)
+print(f&quot;重新采样后的模型准确率: {accuracy_resampled:.2f}&quot;)</code></pre>
+<hr>
+<h4>五、答题卷填写指南</h4>
+<p><strong>任务 4 要求</strong>：对测试结果进行详细分析，填写在 <code>2.2.1.docx</code> 中。</p>
+<h5>模板示例（参考，非标准答案）</h5>
+<p><strong>1. 模型性能</strong>（从 <code>2.2.1_report.txt</code> 读取）</p>
+<table class='md'><thead><tr>
+<th></th><th>precision</th><th>recall</th><th>f1-score</th><th>support</th>
+</tr></thead><tbody>
+<tr><td>0（没有严重逾期）</td><td>0.93</td><td>0.98</td><td>0.95</td><td>850</td></tr>
+<tr><td>1（有严重逾期）</td><td>0.67</td><td>0.35</td><td>0.46</td><td>150</td></tr>
+</tbody></table>
+<p><strong>2. 错误分析</strong></p>
+<ul>
+<li><strong>精确率不平衡</strong>：类别 0 精确率 0.93，类别 1 仅 0.67，说明模型对高风险客户的判断有较多误判</li>
+<li><strong>召回率极低</strong>：类别 1 召回率仅 0.35，意味着真正违约的客户中 65% 被漏检（预测为 0），业务风险极大</li>
+<li><strong>根本原因</strong>：训练数据中严重拖欠样本占比过低（约 15%），模型偏向多数类</li>
+</ul>
+<p><strong>3. 改进建议</strong></p>
+<ul>
+<li><strong>数据层面</strong>：使用 SMOTE 过采样技术平衡训练集，增加少数类样本的学习权重</li>
+<li><strong>模型层面</strong>：调整 <code>class_weight='balanced'</code> 参数，或尝试随机森林、XGBoost 等对不平衡数据更鲁棒的算法</li>
+<li><strong>业务层面</strong>：根据业务容忍度调整阈值（如概率 &gt;0.3 即判为高风险），优先保证召回率</li>
+</ul>
+<hr>
+<h4>六、考试注意事项</h4>
+<ul>
+<li>20 分钟限时，<strong>填空为主，勿重写整段代码</strong></li>
+<li>文件命名严格按要求：<code>2.2.1_model.pkl</code> / <code>2.2.1_results.txt</code> / <code>2.2.1_report.txt</code> 等</li>
+<li>SMOTE 后的结果文件名带 <code>_xg</code> 后缀（表示「修改后」）</li>
+<li>答题卷 <code>2.2.1.docx</code> 不要改格式，只在表格空白处填写</li>
+<li>最终 ipynb 另存为 <code>2.2.1.html</code> 上传</li>
+</ul>
+<hr>
+<h4>七、自测题（先自测，再对答案）</h4>
+<p>1. <code>LogisticRegression(max_iter=1000)</code> 中 <code>max_iter</code> 是什么意思？不设置会怎样？</p>
+<p>2. 为什么 SMOTE 只对训练集处理，不能对测试集？</p>
+<p>3. 金融场景中，精确率和召回率哪个更重要？为什么？</p>
+<p>4. <code>pickle.dump(model, file)</code> 做了什么？生成的 <code>.pkl</code> 文件能直接打开看吗？</p>
+<details>
+<summary>参考答案（先自测再看）</summary>
+<p>1. <strong>最大迭代次数</strong>：模型训练的优化步数上限。默认 100 次可能不够，导致「未收敛」警告（模型没训练完），设 1000 保险。</p>
+<p>2. <strong>测试集要模拟真实分布</strong>：真实场景中违约率就是低（&lt;10%），如果测试集也平衡了（变 50%），评估就失真了。SMOTE 只是让模型「学习」时两类平等，测试时仍用真实比例。</p>
+<p>3. <strong>召回率更重要</strong>（但要平衡）：</p>
+<ul>
+<li>召回率低 → 放过真违约客户 → 银行损失真金白银</li>
+<li>精确率低 → 误伤好客户 → 损失潜在利息收入，但比坏账安全</li>
+<li><strong>实际</strong>：设双重阈值（如召回率 &gt;70%，精确率 &gt;60%）</li>
+</ul>
+<p>4. <strong>序列化保存模型对象</strong>：把训练好的模型（包括权重参数）转成二进制存到文件，下次 <code>pickle.load()</code> 直接用。<code>.pkl</code> 是二进制格式，直接打开是乱码，只能用 Python 加载。</p>
+</details>
+<hr>
+<h4>八、关联概念（已入知识库）</h4>
+<ul>
+<li><span class="wikilink">数据加载与预处理</span> · <span class="wikilink">数据集划分</span> · <span class="wikilink">Logistic回归模型</span> · <span class="wikilink">模型持久化与预测</span> · <span class="wikilink">模型评估</span> · <span class="wikilink">类别不平衡处理</span></li>
+</ul></div>
+<section class="concepts"><h2>知识点卡片</h2><section class="concept-card"><h3>Logistic回归模型</h3><div class="content"><h3>Logistic回归模型</h3>
+<ul>
+<li><strong>来源章节</strong>: 2.2.1</li>
+<li><strong>定义</strong>: 用于二分类问题的经典机器学习算法，通过 Sigmoid 函数把线性结果压缩到 0~1 概率值，输出预测类别</li>
+<li><strong>核心方法</strong>:</li>
+<pre><code>  from sklearn.linear_model import LogisticRegression
+  
+  # 1. 创建模型
+  model = LogisticRegression(max_iter=1000)
+  
+  # 2. 训练模型
+  model.fit(X_train, y_train)
+  
+  # 3. 预测
+  y_pred = model.predict(X_test)           # 输出类别（0 或 1）
+  y_prob = model.predict_proba(X_test)     # 输出概率（0~1）</code></pre>
+<li><strong>数学原理</strong>（面试可能问）:</li>
+<pre><code>  线性组合：z = w1·x1 + w2·x2 + ... + wn·xn + b
+  Sigmoid 函数：P(y=1) = 1 / (1 + e^(-z))
+  决策规则：P(y=1) ≥ 0.5 → 预测为 1（正类）
+            P(y=1) &lt; 0.5 → 预测为 0（负类）</code></pre>
+</ul>
+<p><strong>关键特点</strong>：</p>
+<ul>
+<li>z → +∞ 时，P(y=1) → 1（肯定是正类）</li>
+<li>z → -∞ 时，P(y=1) → 0（肯定是负类）</li>
+<li>z = 0 时，P(y=1) = 0.5（不确定）</li>
+<li><strong>为什么叫「回归」却是分类算法？</strong></li>
+<li><strong>历史原因</strong>：最早用于回归问题（预测连续值），后来发现 Sigmoid 函数能把结果压缩到 0~1，适合二分类</li>
+<li><strong>本质</strong>：通过回归（线性组合）得到 z，再通过 Sigmoid 转成概率，最终分类</li>
+<li><strong>主要参数</strong>:</li>
+<li><code>max_iter=1000</code>: <strong>最大迭代次数</strong>（默认 100，可能不够导致「未收敛」警告）</li>
+<li>考试建议：固定设为 1000，保险</li>
+<li><code>C=1.0</code>: <strong>正则化强度</strong>（默认 1.0，值越小正则化越强，防止过拟合）</li>
+<li>考试通常不调，用默认值</li>
+<li><code>class_weight='balanced'</code>: <strong>类别权重</strong>（处理数据不平衡，自动给少数类更高权重）</li>
+<li>2.2.1 不用这个参数，而是用 SMOTE 过采样</li>
+<li><strong>适用场景</strong>:</li>
+<table class='md'><thead><tr>
+<th>场景</th><th>为什么适合 Logistic 回归</th>
+</tr></thead><tbody>
+<tr><td><strong>信用评分</strong></td><td>输出概率（80% 违约风险），可设不同阈值决策</td></tr>
+<tr><td><strong>垃圾邮件检测</strong></td><td>二分类（垃圾 / 正常），可解释性强</td></tr>
+<tr><td><strong>疾病诊断</strong></td><td>输出患病概率，医生可根据概率做决策</td></tr>
+<tr><td><strong>广告点击预测</strong></td><td>预测点击率（0~1），优化广告投放</td></tr>
+<li><strong>优势 vs 劣势</strong>:</li>
+<tr><td>优势</td><td>劣势</td></tr>
+<tr><td>✅ 输出概率值，业务可解释性强</td><td>❌ 只能处理线性可分问题</td></tr>
+<tr><td>✅ 训练速度快，适合大数据集</td><td>❌ 特征间复杂关系捕捉能力弱</td></tr>
+<tr><td>✅ 不需要特征缩放（相比 SVM）</td><td>❌ 对异常值敏感</td></tr>
+<tr><td>✅ 金融/医疗行业认可（可向监管解释）</td><td>❌ 多分类需改用 Softmax（One-vs-Rest）</td></tr>
+<li><strong>为什么 2.2.1 选 Logistic 回归？</strong></li>
+</ul>
+</tbody></table>
+<p>1. <strong>二分类问题</strong>：预测「是否严重拖欠」（0 或 1）</p>
+<p>2. <strong>可解释性要求</strong>：金融行业需要向监管部门说明「为什么拒绝这个客户的贷款」</p>
+<ul>
+<li>Logistic 回归：每个特征有权重系数（如「月收入低 -0.3」「逾期次数 +0.5」），可量化解释</li>
+<li>黑盒模型（神经网络）：虽然准确率高，但无法解释决策依据</li>
+</ul>
+<p>3. <strong>输出概率值</strong>：可根据业务需求调整阈值（如「概率 &gt;0.3 即判高风险」，宁可误伤也不放过）</p>
+<ul>
+<li><strong>预测方法对比</strong>:</li>
+<pre><code>  # 方法 1：predict() 输出类别
+  y_pred = model.predict(X_test)
+  # 结果：[0, 1, 0, 1, ...] 直接给类别
+  
+  # 方法 2：predict_proba() 输出概率
+  y_prob = model.predict_proba(X_test)
+  # 结果：[[0.8, 0.2], [0.3, 0.7], ...] 
+  # 第一列是 P(y=0)，第二列是 P(y=1)
+  
+  # 业务应用：根据概率调整决策
+  # 例：银行设阈值 0.3（比默认 0.5 更严格）
+  y_pred_strict = (y_prob[:, 1] &gt; 0.3).astype(int)</code></pre>
+<li><strong>常见问题</strong>:</li>
+</ul>
+<p><strong>Q1: 为什么设 <code>max_iter=1000</code>？</strong></p>
+<p>A: 默认 100 次迭代可能不够，模型未收敛会报警告：</p>
+<pre><code>  ConvergenceWarning: lbfgs failed to converge (status=1):
+  STOP: TOTAL NO. of ITERATIONS REACHED LIMIT.</code></pre>
+<p>设 1000 保险（训练时间只多几毫秒）。</p>
+<p><strong>Q2: 训练集准确率 95%，测试集 85%，正常吗？</strong></p>
+<p>A: 正常。训练集见过数据，准确率高；测试集是新数据，有泛化损失。差距 &lt;10% 可接受；差距 &gt;20% 说明过拟合。</p>
+<p><strong>Q3: 什么时候用 Logistic 回归，什么时候用随机森林？</strong></p>
+<p>A:</p>
+<ul>
+<li><strong>Logistic 回归</strong>：数据线性可分 + 需要可解释性（金融、医疗）</li>
+<li><strong>随机森林</strong>：特征间关系复杂 + 数据有噪声 + 不要求解释（推荐系统）</li>
+<li><strong>易错点</strong>:</li>
+<li>❌ 不设 <code>max_iter</code>，模型未收敛 → 设 <code>max_iter=1000</code></li>
+<li>❌ 用训练集评估 → 准确率虚高 → 用测试集评估</li>
+<li>❌ 忘记特征和目标变量已分离 → <code>model.fit(X_train, y_train)</code> 不是 <code>model.fit(data)</code></li>
+<li>✅ 固定流程：创建模型 → fit 训练 → predict 预测 → 评估</li>
+<li><strong>关联</strong>: <span class="wikilink">模型训练与验证</span> · <span class="wikilink">模型评估</span> · <span class="wikilink">Sigmoid函数</span> · <span class="wikilink">二分类问题</span> · <span class="wikilink">随机森林对比</span></li>
+</ul></div></section><section class="concept-card"><h3>数据加载与预处理</h3><div class="content"><h3>数据加载与预处理</h3>
+<ul>
+<li><strong>来源章节</strong>: 2.2.1</li>
+<li><strong>定义</strong>: 读取原始数据集，进行初步检查和清理，选择有效特征，准备模型训练的输入数据</li>
+<li><strong>核心方法</strong>:</li>
+<li><strong>数据读取</strong>: <code>pd.read_csv('文件路径')</code> 加载 CSV 格式数据集</li>
+<li><strong>数据查看</strong>: <code>data.head()</code> 显示前 5 行，<code>data.info()</code> 查看列类型和缺失值</li>
+<li><strong>特征选择</strong>: <code>data.drop(['列名'], axis=1)</code> 删除无关列（索引号、目标变量等）</li>
+<li><strong>操作流程</strong>:</li>
+<pre><code>  # 1. 加载数据
+  data = pd.read_csv(&#x27;finance数据集.csv&#x27;)
+  
+  # 2. 验证数据（新手必做）
+  print(data.head())        # 查看前 5 行
+  print(data.info())        # 列名、类型、缺失值
+  print(data.describe())    # 数值列统计量
+  
+  # 3. 特征工程：分离 X（特征）和 y（目标）
+  X = data.drop([&#x27;SeriousDlqin2yrs&#x27;, &#x27;Unnamed: 0&#x27;], axis=1)
+  y = data[&#x27;SeriousDlqin2yrs&#x27;]</code></pre>
+<li><strong>关键参数</strong>:</li>
+<li><code>axis=1</code>: 删除<strong>列</strong>（<code>axis=0</code> 删行）</li>
+<li><code>drop()</code> 删除的列：</li>
+<li><strong>目标变量</strong>（如 <code>SeriousDlqin2yrs</code>）：需要单独拎出来作为 y</li>
+<li><strong>无意义列</strong>（如 <code>Unnamed: 0</code> 索引号）：对预测无帮助</li>
+<li><strong>常见数据问题及处理</strong>:</li>
+<table class='md'><thead><tr>
+<th>问题</th><th>检测方法</th><th>处理方案</th>
+</tr></thead><tbody>
+<tr><td>缺失值</td><td><code>data.isnull().sum()</code></td><td>删除 <code>dropna()</code> / 填充 <code>fillna()</code></td></tr>
+<tr><td>重复行</td><td><code>data.duplicated().sum()</code></td><td><code>drop_duplicates()</code></td></tr>
+<tr><td>异常值</td><td><code>data.describe()</code> 看极值</td><td>箱线图法 / Z-score 过滤</td></tr>
+<tr><td>类型错误</td><td><code>data.info()</code></td><td><code>astype()</code> 转换</td></tr>
+<li><strong>业务理解</strong>（以 2.2.1 信用评分为例）:</li>
+<li><strong>保留特征</strong>：年龄、月收入、逾期次数、债务比率 → 与信用直接相关</li>
+<li><strong>删除特征</strong>：<code>Unnamed: 0</code>（行索引编号）→ 类似身份证号，与信用无关</li>
+<li><strong>目标变量</strong>：<code>SeriousDlqin2yrs</code>（是否严重拖欠）→ 需要单独作为 y</li>
+<li><strong>易错点</strong>:</li>
+<li>❌ 忘记查看数据就直接训练（数据可能有缺失值、格式错误）</li>
+<li>❌ 把目标变量也放进 X（模型会「偷看答案」，准确率虚高）</li>
+<li>❌ <code>axis</code> 参数搞反（<code>axis=0</code> 删行，<code>axis=1</code> 删列）</li>
+<li>✅ 先 <code>head()</code> / <code>info()</code> 检查 → 再 <code>drop()</code> 删除无关列 → 最后分离 X 和 y</li>
+<li><strong>验证清单</strong>（提交前必查）:</li>
+<li>[ ] X 的列数 = 原始数据列数 - 2（目标变量 + 索引列）</li>
+<li>[ ] X 中没有目标变量（<code>'SeriousDlqin2yrs' in X.columns</code> 应为 <code>False</code>）</li>
+<li>[ ] y 的类型是 Series，值只有 0 和 1</li>
+<li>[ ] X 和 y 的行数相同（<code>len(X) == len(y)</code>）</li>
+<li><strong>关联</strong>: <span class="wikilink">数据集划分</span> · <span class="wikilink">特征工程</span> · <span class="wikilink">pandas基础操作</span></li>
+</ul>
+</tbody></table></div></section><section class="concept-card"><h3>模型持久化与预测</h3><div class="content"><h3>模型持久化与预测</h3>
+<ul>
+<li><strong>来源章节</strong>: 2.2.1</li>
+<li><strong>定义</strong>: 将训练好的模型保存为文件（持久化），下次直接加载使用，无需重新训练；并对新数据进行预测</li>
+<li><strong>核心方法</strong>:</li>
+<pre><code>  import pickle
+  
+  # 1. 保存模型（序列化）
+  with open(&#x27;2.2.1_model.pkl&#x27;, &#x27;wb&#x27;) as file:
+      pickle.dump(model, file)
+  
+  # 2. 加载模型（反序列化）
+  with open(&#x27;2.2.1_model.pkl&#x27;, &#x27;rb&#x27;) as file:
+      loaded_model = pickle.load(file)
+  
+  # 3. 预测
+  y_pred = loaded_model.predict(X_test)
+  
+  # 4. 保存预测结果
+  pd.DataFrame(y_pred, columns=[&#x27;预测结果&#x27;]).to_csv(&#x27;2.2.1_results.txt&#x27;, index=False)</code></pre>
+<li><strong>为什么要持久化？</strong></li>
+<table class='md'><thead><tr>
+<th>场景</th><th>不持久化的问题</th><th>持久化后的好处</th>
+</tr></thead><tbody>
+<tr><td><strong>生产环境</strong></td><td>每次预测都训练一遍（慢）</td><td>训练一次，加载秒级预测</td></tr>
+<tr><td><strong>模型交付</strong></td><td>客户无法复现你的模型</td><td>交付 <code>.pkl</code> 文件，客户直接用</td></tr>
+<tr><td><strong>版本管理</strong></td><td>无法回退到旧版本模型</td><td>保存多个版本（<code>model_v1.pkl</code> / <code>model_v2.pkl</code>）</td></tr>
+<tr><td><strong>考试提交</strong></td><td>无法证明模型训练成功</td><td>提交 <code>.pkl</code> 文件作为交付物</td></tr>
+<li><strong>pickle 模块详解</strong>:</li>
+<li><strong>作用</strong>：Python 对象序列化（转成二进制）和反序列化（二进制转回对象）</li>
+<li><strong>支持对象</strong>：几乎所有 Python 对象（模型、DataFrame、字典、列表等）</li>
+<li><strong>文件扩展名</strong>：<code>.pkl</code>（pickle 的缩写），也可用 <code>.pickle</code></li>
+<li><strong>文件特性</strong>：</li>
+<li>二进制格式，直接打开是乱码</li>
+<li>只能用 <code>pickle.load()</code> 加载</li>
+<li>跨平台（Windows 训练，Linux 加载）</li>
+<li><strong>关键参数</strong>:</li>
+<pre><code>  # 保存模型
+  with open(&#x27;文件路径&#x27;, &#x27;wb&#x27;) as file:  # &#x27;wb&#x27; = write binary（写二进制）
+      pickle.dump(对象, file)
+  
+  # 加载模型
+  with open(&#x27;文件路径&#x27;, &#x27;rb&#x27;) as file:  # &#x27;rb&#x27; = read binary（读二进制）
+      对象 = pickle.load(file)</code></pre>
+</ul>
+</tbody></table>
+<p><strong>⚠️ 文件模式必须是二进制（'wb' / 'rb'）</strong>，不能用文本模式（'w' / 'r'），否则报错：</p>
+<pre><code>  TypeError: write() argument must be str, not bytes</code></pre>
+<ul>
+<li><strong>预测结果保存</strong>:</li>
+<pre><code>  # y_pred 是 NumPy 数组：[0, 1, 0, 1, ...]
+  # 转成 DataFrame 保存为 CSV
+  pd.DataFrame(y_pred, columns=[&#x27;预测结果&#x27;]).to_csv(&#x27;2.2.1_results.txt&#x27;, index=False)
+  
+  # index=False 的作用：不保存行索引
+  # ✅ 有 index=False：
+  # 预测结果
+  # 0
+  # 1
+  # 0
+  # ❌ 没有 index=False：
+  # ,预测结果
+  # 0,0
+  # 1,1
+  # 2,0  ← 多了一列无意义的行号</code></pre>
+<li><strong>完整流程示例</strong>:</li>
+<pre><code>  # === 第一次运行：训练并保存 ===
+  model = LogisticRegression(max_iter=1000)
+  model.fit(X_train, y_train)
+  
+  with open(&#x27;2.2.1_model.pkl&#x27;, &#x27;wb&#x27;) as file:
+      pickle.dump(model, file)
+  
+  # === 第二次运行：加载并预测（无需重新训练）===
+  with open(&#x27;2.2.1_model.pkl&#x27;, &#x27;rb&#x27;) as file:
+      model = pickle.load(file)
+  
+  y_pred = model.predict(X_test)
+  pd.DataFrame(y_pred, columns=[&#x27;预测结果&#x27;]).to_csv(&#x27;2.2.1_results.txt&#x27;, index=False)</code></pre>
+<li><strong>其他序列化方法</strong>（拓展，考试不涉及）:</li>
+<table class='md'><thead><tr>
+<th>方法</th><th>适用场景</th><th>优劣</th>
+</tr></thead><tbody>
+<tr><td><strong>pickle</strong></td><td>sklearn 模型、通用 Python 对象</td><td>✅ 通用性强 ❌ 只支持 Python</td></tr>
+<tr><td><strong>joblib</strong></td><td>大型 NumPy 数组、sklearn 模型</td><td>✅ 压缩率高、速度快 ❌ 只支持 Python</td></tr>
+<tr><td><strong>ONNX</strong></td><td>跨语言部署（Python 训练 → C++/Java 部署）</td><td>✅ 跨平台 ❌ 转换复杂</td></tr>
+<tr><td><strong>TensorFlow SavedModel</strong></td><td>TensorFlow/Keras 模型</td><td>✅ 官方推荐 ❌ 只支持 TF 模型</td></tr>
+</ul>
+</tbody></table>
+<p><strong>考试只用 pickle</strong>，其他了解即可。</p>
+<ul>
+<li><strong>常见问题</strong>:</li>
+</ul>
+<p><strong>Q1: <code>.pkl</code> 文件可以直接打开看吗？</strong></p>
+<p>A: 不行。它是二进制格式，记事本打开是乱码。只能用 <code>pickle.load()</code> 加载后操作。</p>
+<p><strong>Q2: 保存模型时报错 <code>AttributeError: Can't pickle local object</code>？</strong></p>
+<p>A: 模型中有 lambda 函数或局部对象，pickle 无法序列化。解决方法：</p>
+<ul>
+<li>改用 <code>joblib</code> 或 <code>dill</code></li>
+<li>避免在模型中使用 lambda</li>
+</ul>
+<p><strong>Q3: 不同版本的 sklearn，<code>.pkl</code> 文件能通用吗？</strong></p>
+<p>A: 不保证。sklearn 1.0 训练的模型，sklearn 0.24 可能加载失败。建议：</p>
+<ul>
+<li>记录训练时的 sklearn 版本（<code>sklearn.__version__</code>）</li>
+<li>部署环境安装相同版本</li>
+</ul>
+<p><strong>Q4: 为什么不直接保存预测代码，每次重新预测？</strong></p>
+<p>A: 训练慢（2.2.1 是秒级，但复杂模型可能几小时），且训练有随机性（即使 <code>random_state</code> 固定，不同环境结果也可能微调）。</p>
+<ul>
+<li><strong>考试注意事项</strong>:</li>
+<li>文件命名严格按要求：<code>2.2.1_model.pkl</code>（不能是 <code>model.pkl</code> / <code>2.2.1.pkl</code>）</li>
+<li>预测结果保存为 <code>.txt</code>（虽然是 CSV 格式，但考试要求后缀 <code>.txt</code>）</li>
+<li><code>index=False</code> 必加（否则多一列行号，考试可能扣分）</li>
+<li>文件保存路径：考生文件夹（桌面「准考证号+身份证后6位」）</li>
+<li><strong>易错点</strong>:</li>
+<li>❌ 文件模式写成 <code>'w'</code> / <code>'r'</code> → 应为 <code>'wb'</code> / <code>'rb'</code>（二进制）</li>
+<li>❌ 忘记 <code>index=False</code> → 预测结果多一列行号</li>
+<li>❌ 文件命名不规范 → 严格按考试要求命名</li>
+<li>✅ 固定模板：<code>with open(..., 'wb') as file: pickle.dump(model, file)</code></li>
+<li><strong>关联</strong>: <span class="wikilink">Logistic回归模型</span> · <span class="wikilink">模型评估</span> · <span class="wikilink">模型部署</span> · <span class="wikilink">文件读写操作</span></li>
+</ul></div></section><section class="concept-card"><h3>模型评估</h3><div class="content"><h3>模型评估</h3>
+<ul>
+<li><strong>来源章节</strong>: 2.2.1</li>
+<li><strong>定义</strong>: 使用测试集数据评估模型的预测性能，通过多个指标（精确率、召回率、F1-score、准确率）量化模型质量</li>
+<li><strong>核心方法</strong>:</li>
+<pre><code>  from sklearn.metrics import classification_report
+  
+  # 1. 生成详细分类报告
+  report = classification_report(y_test, y_pred, zero_division=1)
+  print(report)
+  
+  # 2. 计算总体准确率
+  accuracy = model.score(X_test, y_test)
+  print(f&quot;模型准确率: {accuracy:.2f}&quot;)</code></pre>
+<li><strong>分类报告核心指标</strong>:</li>
+<table class='md'><thead><tr>
+<th>指标</th><th>英文</th><th>含义</th><th>计算公式</th><th>业务解读</th>
+</tr></thead><tbody>
+<tr><td><strong>精确率</strong></td><td>precision</td><td>预测为正类的样本中，真正是正类的比例</td><td>TP / (TP + FP)</td><td>「我说你违约，我说对的概率」</td></tr>
+<tr><td><strong>召回率</strong></td><td>recall</td><td>真正是正类的样本中，被预测出来的比例</td><td>TP / (TP + FN)</td><td>「真正违约的人，我抓到几个」</td></tr>
+<tr><td><strong>F1-score</strong></td><td>f1-score</td><td>精确率和召回率的调和平均</td><td>2 × (P × R) / (P + R)</td><td>平衡指标，综合评价</td></tr>
+<tr><td><strong>support</strong></td><td>support</td><td>该类别在测试集的真实样本数</td><td>—</td><td>样本量（不是性能指标）</td></tr>
+<li><strong>混淆矩阵术语</strong>（理解指标的基础）:</li>
+<pre><code>  实际 \ 预测 │  预测 0  │  预测 1
+  ───────────┼─────────┼─────────
+  真实 0     │  TN ✅  │  FP ❌ 
+  真实 1     │  FN ❌  │  TP ✅
+  
+  - TP (True Positive): 真拖欠，预测拖欠 ✅
+  - TN (True Negative): 不拖欠，预测不拖欠 ✅
+  - FP (False Positive): 不拖欠，预测拖欠 ❌（误杀好客户，I型错误）
+  - FN (False Negative): 真拖欠，预测不拖欠 ❌（漏检坏客户，II型错误）</code></pre>
+<li><strong>分类报告示例</strong>（2.2.1 典型输出）:</li>
+<pre><code>                precision  recall  f1-score  support
+  
+           0       0.93      0.98      0.95      850
+           1       0.67      0.35      0.46      150
+  
+    accuracy                           0.91     1000
+   macro avg       0.80      0.67      0.71     1000
+  weighted avg     0.89      0.91      0.89     1000</code></pre>
+</ul>
+</tbody></table>
+<p><strong>解读</strong>：</p>
+<ul>
+<li><strong>类别 0（正常客户）</strong>: 精确率 93%，召回率 98%，表现优秀</li>
+<li><strong>类别 1（违约客户）</strong>: 精确率 67%，召回率 35%，<strong>严重问题！</strong></li>
+<li>召回率 35% 意味着 65% 的违约客户被漏检（预测为 0）</li>
+<li>精确率 67% 说明预测为违约的客户中，有 33% 是误判</li>
+<li><strong>准确率 91%</strong> 看似很高，但掩盖了少数类预测失败的问题</li>
+<li><strong>业务场景下的指标权衡</strong>:</li>
+<table class='md'><thead><tr>
+<th>场景</th><th>优先指标</th><th>理由</th>
+</tr></thead><tbody>
+<tr><td><strong>信用评分</strong></td><td>召回率（抓违约）</td><td>放过一个坏客户（FN）→ 银行损失真金白银；误伤好客户（FP）→ 只是少赚利息</td></tr>
+<tr><td><strong>垃圾邮件</strong></td><td>精确率（少误判）</td><td>正常邮件进垃圾箱（FP）→ 用户错过重要信息；漏掉垃圾邮件（FN）→ 只是多看一封广告</td></tr>
+<tr><td><strong>癌症筛查</strong></td><td>召回率（少漏检）</td><td>漏检患者（FN）→ 延误治疗，致命；误判健康人（FP）→ 复查后排除，可接受</td></tr>
+<tr><td><strong>推荐系统</strong></td><td>F1-score（平衡）</td><td>既要推荐准（precision），又要覆盖全（recall）</td></tr>
+<li><strong>准确率的陷阱</strong>（类别不平衡时）:</li>
+<pre><code>  # 场景：1000 个客户，只有 50 个违约（5%）
+  # 策略 1：全预测为 0（不违约）
+  准确率 = 950 / 1000 = 95%  ← 看起来很高！
+  召回率(1) = 0 / 50 = 0%     ← 一个违约都没抓到！
+  
+  # 策略 2：用 SMOTE 平衡后训练
+  准确率 = 850 / 1000 = 85%  ← 下降了
+  召回率(1) = 35 / 50 = 70%  ← 但能抓到 70% 的违约，业务价值更高！</code></pre>
+</ul>
+</tbody></table>
+<p><strong>结论</strong>：类别不平衡时，<strong>准确率不可信</strong>，要看<strong>召回率</strong>或 <strong>F1-score</strong>。</p>
+<ul>
+<li><strong>zero_division=1 参数</strong>:</li>
+<pre><code>  classification_report(y_test, y_pred, zero_division=1)</code></pre>
+<li><strong>作用</strong>：避免除以 0 的警告（某类别预测数为 0 时）</li>
+<li><strong>默认</strong>：<code>zero_division='warn'</code>（打印警告）</li>
+<li><strong>设为 1</strong>：出现除以 0 时，指标设为 1（考试要求，避免输出警告信息）</li>
+<li><strong>模型评估流程</strong>:</li>
+<pre><code>  # 1. 训练模型
+  model.fit(X_train, y_train)
+  
+  # 2. 预测测试集
+  y_pred = model.predict(X_test)
+  
+  # 3. 生成分类报告
+  report = classification_report(y_test, y_pred, zero_division=1)
+  print(report)
+  
+  # 4. 计算准确率
+  accuracy = model.score(X_test, y_test)
+  print(f&quot;准确率: {accuracy:.2f}&quot;)
+  
+  # 5. 保存报告到文件（考试要求）
+  with open(&#x27;2.2.1_report.txt&#x27;, &#x27;w&#x27;) as file:
+      file.write(report)</code></pre>
+<li><strong>答题卷填写示例</strong>（2.2.1 要求）:</li>
+<pre><code>  针对Logistic模型
+  1、模型性能
+  
+                precision  recall  f1-score  support
+  0（没有严重逾期）   0.93     0.98     0.95      850
+  1（有严重逾期）     0.67     0.35     0.46      150
+  
+  2、错误分析
+  - 类别 1 召回率仅 0.35，意味着 65% 的违约客户被漏检
+  - 原因：训练数据中违约样本占比过低（约 15%），模型偏向多数类
+  
+  3、改进建议
+  - 使用 SMOTE 过采样平衡训练集
+  - 调整 class_weight=&#x27;balanced&#x27; 参数给少数类更高权重
+  - 根据业务需求调整阈值（如概率 &gt;0.3 即判为高风险）</code></pre>
+<li><strong>常见问题</strong>:</li>
+</ul>
+<p><strong>Q1: 准确率 91% 但召回率只有 35%，模型好还是坏？</strong></p>
+<p>A: <strong>坏模型</strong>。准确率高是因为数据不平衡（85% 都是类别 0），模型「猜大头」。召回率低说明业务关键指标失败。</p>
+<p><strong>Q2: 精确率和召回率能同时提高吗？</strong></p>
+<p>A: <strong>很难</strong>。两者通常互斥（翘翘板效应）：</p>
+<ul>
+<li>提高召回率（多抓违约）→ 误判增多 → 精确率下降</li>
+<li>提高精确率（少误判）→ 漏检增多 → 召回率下降</li>
+</ul>
+<p>解决方法：优化模型（更多数据、更好特征、更强算法）或根据业务设置阈值。</p>
+<p><strong>Q3: F1-score 什么时候用？</strong></p>
+<p>A: 当精确率和召回率都重要时（如搜索引擎：既要结果准，又要覆盖全）。F1 是两者的调和平均，偏向较低的那个指标。</p>
+<ul>
+<li><strong>易错点</strong>:</li>
+<li>❌ 只看准确率，忽略召回率 → 类别不平衡时准确率失真</li>
+<li>❌ 用训练集评估 → <code>model.score(X_train, y_train)</code> 结果虚高</li>
+<li>❌ 忘记 <code>zero_division=1</code> → 输出警告信息，考试可能扣分</li>
+<li>✅ <strong>永远用测试集评估</strong>，关注业务关键指标（信用评分看召回率）</li>
+<li><strong>关联</strong>: <span class="wikilink">Logistic回归模型</span> · <span class="wikilink">类别不平衡处理</span> · <span class="wikilink">混淆矩阵</span> · <span class="wikilink">模型优化策略</span></li>
+</ul></div></section><section class="concept-card"><h3>类别不平衡处理</h3><div class="content"><h3>类别不平衡处理</h3>
+<ul>
+<li><strong>来源章节</strong>: 2.2.1</li>
+<li><strong>定义</strong>: 当训练数据中某类样本极少（如违约客户 &lt;10%），模型倾向预测多数类，导致少数类召回率极低。通过 SMOTE 过采样等技术平衡数据，提升少数类预测性能</li>
+<li><strong>核心方法</strong>:</li>
+<pre><code>  from imblearn.over_sampling import SMOTE
+  
+  # 1. 创建 SMOTE 过采样器
+  smote = SMOTE(random_state=42)
+  
+  # 2. 对训练集过采样（⚠️ 只对训练集，不动测试集！）
+  X_resampled, y_resampled = smote.fit_resample(X_train, y_train)
+  
+  # 3. 用新数据重新训练
+  model.fit(X_resampled, y_resampled)
+  
+  # 4. 预测测试集（测试集不变）
+  y_pred = model.predict(X_test)</code></pre>
+<li><strong>问题诊断</strong>（什么时候需要处理不平衡？）:</li>
+<table class='md'><thead><tr>
+<th>数据特征</th><th>模型表现</th><th>是否需要处理</th>
+</tr></thead><tbody>
+<tr><td>多数类 : 少数类 = 9:1</td><td>准确率 90%，召回率(少数类) &lt;0.3</td><td>✅ <strong>必须处理</strong></td></tr>
+<tr><td>多数类 : 少数类 = 7:3</td><td>准确率 80%，召回率(少数类) 0.6</td><td>⚠️ 视情况处理</td></tr>
+<tr><td>多数类 : 少数类 = 5:5</td><td>两类召回率都 &gt;0.7</td><td>❌ 数据平衡，无需处理</td></tr>
+</ul>
+</tbody></table>
+<p><strong>典型症状</strong>：</p>
+<ul>
+<li>准确率很高（&gt;90%），但少数类召回率极低（&lt;0.3）</li>
+<li>模型「猜大头」：全预测为多数类，准确率 = 多数类占比</li>
+<li><strong>SMOTE 原理</strong>（Synthetic Minority Over-sampling Technique）:</li>
+<pre><code>  1. 找到少数类样本 A 的 k 个最近邻（默认 k=5）
+  2. 从邻居中随机选一个 B
+  3. 在 A 和 B 的连线上随机生成新样本：
+     new_sample = A + rand(0, 1) × (B - A)
+  4. 重复直到少数类数量 ≈ 多数类数量</code></pre>
+</ul>
+<p><strong>示意图</strong>（文字版）:</p>
+<pre><code>  原始数据：
+  多数类（0）: 900 个样本  ●●●●●●●●●
+  少数类（1）: 100 个样本  ○○
+  
+  SMOTE 后：
+  多数类（0）: 900 个样本  ●●●●●●●●●
+  少数类（1）: 900 个样本  ○○○○○○○○○（新增 800 个合成样本）</code></pre>
+<ul>
+<li><strong>为什么只对训练集 SMOTE？</strong>（核心考点）:</li>
+<pre><code>  # ✅ 正确做法
+  X_resampled, y_resampled = smote.fit_resample(X_train, y_train)
+  model.fit(X_resampled, y_resampled)  # 训练集平衡
+  y_pred = model.predict(X_test)       # 测试集不变
+  
+  # ❌ 错误做法
+  X_all_resampled, y_all_resampled = smote.fit_resample(X, y)
+  # 然后划分训练测试集 → 合成样本可能泄露到测试集 → 评估失真！</code></pre>
+</ul>
+<p><strong>理由</strong>：</p>
+<ul>
+<li><strong>训练集</strong>：用于模型学习，平衡后让模型「平等对待」两类样本</li>
+<li><strong>测试集</strong>：模拟真实场景，真实场景中违约率就是低（&lt;10%），必须保持原始分布</li>
+<li><strong>如果测试集也 SMOTE</strong>：违约率变 50%，评估就失去意义（真实世界不是 50%）</li>
+<li><strong>效果对比</strong>（2.2.1 典型结果）:</li>
+<table class='md'><thead><tr>
+<th>阶段</th><th>准确率</th><th>precision(1)</th><th>recall(1)</th><th>f1-score(1)</th>
+</tr></thead><tbody>
+<tr><td>SMOTE 前</td><td>0.93</td><td>0.67</td><td>0.35</td><td>0.46</td></tr>
+<tr><td>SMOTE 后</td><td>0.85</td><td>0.58</td><td>0.68</td><td>0.63</td></tr>
+</ul>
+</tbody></table>
+<p><strong>关键变化</strong>：</p>
+<ul>
+<li>准确率下降（93% → 85%）—— <strong>正常现象！</strong> 不再「猜大头」了</li>
+<li>召回率提升（35% → 68%）—— <strong>核心目标！</strong> 抓到更多违约客户</li>
+<li>F1-score 提升（0.46 → 0.63）—— 综合性能变好</li>
+<li><strong>其他不平衡处理方法</strong>（拓展，考试不涉及）:</li>
+<table class='md'><thead><tr>
+<th>方法</th><th>原理</th><th>优劣</th>
+</tr></thead><tbody>
+<tr><td><strong>SMOTE</strong></td><td>为少数类生成合成样本</td><td>✅ 效果好 ❌ 可能引入噪声</td></tr>
+<tr><td><strong>欠采样</strong></td><td>删除多数类样本</td><td>✅ 简单快速 ❌ 损失大量数据</td></tr>
+<tr><td><strong>class_weight</strong></td><td>给少数类更高权重</td><td>✅ 不改数据 ❌ 效果不如 SMOTE</td></tr>
+<tr><td><strong>集成方法</strong></td><td>BalancedRandomForest</td><td>✅ 自动平衡 ❌ 换算法</td></tr>
+</ul>
+</tbody></table>
+<p><strong>考试只用 SMOTE</strong>，其他了解即可。</p>
+<ul>
+<li><strong>完整对比代码</strong>:</li>
+<pre><code>  # === 第一轮：未处理不平衡 ===
+  model = LogisticRegression(max_iter=1000)
+  model.fit(X_train, y_train)
+  y_pred = model.predict(X_test)
+  
+  print(&quot;未处理前：&quot;)
+  print(classification_report(y_test, y_pred))
+  # 结果：准确率 93%，召回率(1) 0.35
+  
+  # === 第二轮：SMOTE 处理 ===
+  smote = SMOTE(random_state=42)
+  X_resampled, y_resampled = smote.fit_resample(X_train, y_train)
+  
+  model.fit(X_resampled, y_resampled)
+  y_pred_resampled = model.predict(X_test)
+  
+  print(&quot;SMOTE 后：&quot;)
+  print(classification_report(y_test, y_pred_resampled))
+  # 结果：准确率 85%，召回率(1) 0.68</code></pre>
+<li><strong>random_state=42 的作用</strong>:</li>
+<pre><code>  smote = SMOTE(random_state=42)</code></pre>
+<li><strong>固定随机种子</strong>：保证每次生成的合成样本位置相同</li>
+<li><strong>考试必加</strong>：否则每次运行结果不同，评分时对不上答案</li>
+<li><strong>常见问题</strong>:</li>
+</ul>
+<p><strong>Q1: SMOTE 后准确率下降，是不是失败了？</strong></p>
+<p>A: <strong>不是失败，是正常现象</strong>。准确率下降是因为不再「猜大头」了；关键看少数类召回率是否提升（这才是业务目标）。</p>
+<p><strong>Q2: 能否直接调整 class_weight 而不用 SMOTE？</strong></p>
+<p>A: 可以尝试，但效果通常不如 SMOTE：</p>
+<pre><code>  model = LogisticRegression(max_iter=1000, class_weight=&#x27;balanced&#x27;)
+  model.fit(X_train, y_train)</code></pre>
+<p><code>class_weight='balanced'</code> 自动给少数类更高权重，但不改变数据分布。</p>
+<p><strong>Q3: 为什么不用欠采样（删除多数类样本）？</strong></p>
+<p>A: 欠采样会丢失大量信息。例如 900 个正常客户随机删到 100 个，损失 800 个样本的特征信息。SMOTE 不损失数据，只增加少数类。</p>
+<p><strong>Q4: SMOTE 会过拟合吗？</strong></p>
+<p>A: 可能。合成样本是「造」出来的，如果 k 近邻选不好，可能生成噪声。解决方法：</p>
+<ul>
+<li>调整 <code>k_neighbors</code> 参数（默认 5）</li>
+<li>尝试 SMOTE 变体（如 BorderlineSMOTE、ADASYN）</li>
+<li><strong>易错点</strong>:</li>
+<li>❌ 对整个数据集 SMOTE，再划分训练测试集 → 数据泄露！</li>
+<li>❌ 对测试集也 SMOTE → 评估失真！</li>
+<li>❌ SMOTE 前后用不同的测试集 → 结果不可比</li>
+<li>✅ 固定流程：划分数据集 → 只对训练集 SMOTE → 训练 → 用原始测试集评估</li>
+<li><strong>考试注意事项</strong>:</li>
+<li>SMOTE 后的结果文件名带 <code>_xg</code> 后缀（如 <code>2.2.1_results_xg.txt</code>，表示「修改后」）</li>
+<li>答题卷要对比 SMOTE 前后的性能变化，说明改进效果</li>
+<li><code>random_state=42</code> 必加，保证结果可复现</li>
+<li><strong>关联</strong>: <span class="wikilink">模型评估</span> · <span class="wikilink">Logistic回归模型</span> · <span class="wikilink">数据集划分</span> · <span class="wikilink">过采样与欠采样</span></li>
+</ul></div></section></section>
+</body>
+</html>

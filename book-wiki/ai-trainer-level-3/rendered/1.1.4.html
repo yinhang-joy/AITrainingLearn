@@ -426,22 +426,6 @@ data[&#x27;Age_std&#x27;] = (data[&#x27;Age&#x27;] - data[&#x27;Age&#x27;].mean(
 <li><code>.describe()</code>：看数值分布（均值、最大最小值、四分位数）</li>
 <li><strong>易错点</strong>: <code>.describe()</code> 只统计数值列（int/float），字符串列不会显示</li>
 <li><strong>关联</strong>: <span class="wikilink">dropna-missing-values</span> · <span class="wikilink">astype-conversion</span></li>
-</ul></div></section><section class="concept-card"><h3>dropna-missing-values</h3><div class="content"><h3>dropna-missing-values（缺失值处理）</h3>
-<ul>
-<li><strong>来源章节</strong>: 1.1.4</li>
-<li><strong>定义</strong>: 识别并删除包含缺失值（NaN）的记录，保证数据完整性</li>
-<li><strong>用法</strong>:</li>
-<pre><code>  data.isnull().sum()    # 统计每列缺失值数量
-  data = data.dropna()   # 删除任意列有 NaN 的行</code></pre>
-<li><strong>参数</strong>:</li>
-<li><code>how='any'</code>（默认）：任意列有 NaN 就删除该行</li>
-<li><code>how='all'</code>：所有列都是 NaN 才删除</li>
-<li><code>subset=['col1', 'col2']</code>：只检查指定列</li>
-<li><strong>对比填充方法</strong>:</li>
-<li><code>dropna()</code> 删除缺失值（数据量减少）</li>
-<li><code>fillna()</code> 填充缺失值（数据量不变，1.1.2 已学）</li>
-<li><strong>易错点</strong>: 删除后原 DataFrame 不变，需要重新赋值 <code>data = data.dropna()</code></li>
-<li><strong>关联</strong>: <span class="wikilink">fillna-method</span> · <span class="wikilink">data-read-and-view</span></li>
 </ul></div></section><section class="concept-card"><h3>z-score-normalization</h3><div class="content"><h3>z-score-normalization（数据标准化）</h3>
 <ul>
 <li><strong>来源章节</strong>: 1.1.4</li>

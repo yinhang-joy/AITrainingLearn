@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>2.1.3 信用评分模型数据清洗和标注流程设计</title>
+<style>
+:root { --bg:#fff; --fg:#1a1a1a; --line:#e5e5e5; --muted:#737373; --accent:#2563eb; --chip:#f5f5f5; }
+@media (prefers-color-scheme:dark) { :root:not([data-theme="light"]) { --bg:#0a0a0a; --fg:#ededed; --line:#262626; --muted:#a3a3a3; --accent:#60a5fa; --chip:#1a1a1a; } }
+:root[data-theme="dark"] { --bg:#0a0a0a; --fg:#ededed; --line:#262626; --muted:#a3a3a3; --accent:#60a5fa; --chip:#1a1a1a; }
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:var(--bg); color:var(--fg); font-family:system-ui,-apple-system,sans-serif; line-height:1.6; padding:20px; max-width:900px; margin:0 auto; }
+h1 { font-size:24px; margin:0 0 20px; padding-bottom:10px; border-bottom:2px solid var(--line); }
+h2 { font-size:20px; margin:24px 0 12px; color:var(--accent); }
+h3 { font-size:17px; margin:16px 0 8px; }
+h4 { font-size:15px; margin:12px 0 6px; }
+h5 { font-size:14px; margin:10px 0 4px; }
+p { margin:8px 0; }
+ul { margin:8px 0 8px 24px; }
+li { margin:3px 0; }
+pre { background:var(--chip); border:1px solid var(--line); border-radius:8px; padding:12px; overflow-x:auto; margin:12px 0; }
+code { font-family:Consolas,Monaco,monospace; font-size:13px; }
+p code { background:var(--chip); padding:2px 6px; border-radius:4px; }
+table { border-collapse:collapse; margin:12px 0; font-size:14px; width:100%; }
+th, td { border:1px solid var(--line); padding:6px 12px; text-align:left; }
+th { background:var(--chip); font-weight:600; }
+blockquote { border-left:4px solid var(--accent); margin:12px 0; padding:4px 14px; color:var(--muted); background:var(--chip); }
+hr { border:none; border-top:1px solid var(--line); margin:20px 0; }
+details summary { cursor:pointer; color:var(--accent); font-weight:500; user-select:none; }
+.wikilink { color:var(--accent); }
+.concepts { margin-top:40px; padding-top:20px; border-top:2px solid var(--line); }
+.concept-card { border:1px solid var(--line); border-radius:8px; padding:16px; margin:16px 0; background:var(--chip); }
+.concept-card h3 { margin-top:0; color:#9333ea; }
+.content > *:first-child { margin-top:0; }
+.content > *:last-child { margin-bottom:0; }
+</style>
+</head>
+<body>
+<h1>2.1.3 信用评分模型数据清洗和标注流程设计</h1>
+<div class="lecture-body"><h3>2.1.3 讲义：信用评分模型数据清洗和标注流程设计</h3>
+<ul>
+<li><strong>日期</strong>: 2026-08-20</li>
+<li><strong>状态</strong>: 待讲解 → 待做题（ipynb）</li>
+<li><strong>数据</strong>: <code>finance数据集.csv</code>（15000 行 × 12 列，信用评分数据）</li>
+<li><strong>考核时间</strong>: 20 分钟，机考</li>
+</ul>
+<hr>
+<h4>一、任务解读（数据清洗全流程）</h4>
+<h5>场景背景</h5>
+<p>互联网金融中的信用评分系统，通过客户资料、历史数据、第三方平台数据评估借贷人违约概率。本任务使用 Finance 数据集（15000 条样本，10 个自变量 + 1 个目标变量 <code>SeriousDlqin2yrs</code>），要求完成模型开发前的数据预处理。</p>
+<h5>任务拆解</h5>
+<table class='md'><thead><tr>
+<th>中文要求</th><th>翻译成 pandas/sklearn</th>
+</tr></thead><tbody>
+<tr><td>① 加载数据并显示前五行</td><td><code>pd.read_csv(...)</code> + <code>.head()</code></td></tr>
+<tr><td>② 检测异常值（箱线图）</td><td><code>plt.subplot(3,4,i)</code> + <code>sns.boxplot</code></td></tr>
+<tr><td>② 处理异常值（IQR 方法）</td><td><code>.quantile(0.25/0.75)</code> + 布尔索引过滤</td></tr>
+<tr><td>③ 检查并删除重复值</td><td><code>.duplicated()</code> + <code>.drop_duplicates()</code></td></tr>
+<tr><td>④ 归一化处理</td><td><code>MinMaxScaler().fit_transform(...)</code></td></tr>
+<tr><td>⑤ 创建新特征</td><td><code>df['新列'] = 计算公式</code></td></tr>
+<tr><td>⑥ 设定目标变量</td><td><code>y = df['SeriousDlqin2yrs']</code></td></tr>
+<tr><td>⑦ 划分训练/测试集</td><td><code>train_test_split(X, y, test_size=0.2)</code></td></tr>
+<tr><td>⑧ 保存清洗后数据</td><td><code>.to_csv(..., index=False)</code></td></tr>
+<tr><td>⑨ 制定清洗/特征工程规范</td><td>答题卷文字题（3分+2分）</td></tr>
+</tbody></table>
+<hr>
+<h4>二、核心知识点详解</h4>
+<h5>① 异常值检测：箱线图可视化</h5>
+<pre><code>import matplotlib.pyplot as plt
+import seaborn as sns
+
+# 设置画布尺寸：12×8 英寸
+plt.figure(figsize=(12, 8))
+
+# 只对数值列绘制箱线图
+numeric_cols = data.select_dtypes(include=[&#x27;float64&#x27;, &#x27;int64&#x27;]).columns
+
+# 创建 3 行 4 列的子图网格
+for i, col in enumerate(numeric_cols, 1):
+    plt.subplot(3, 4, i)        # 第 i 个子图
+    sns.boxplot(x=data[col])    # 横向箱线图
+    plt.title(col)
+
+plt.tight_layout()              # 自动调整子图间距
+plt.show()</code></pre>
+<p><strong>知识点</strong>：</p>
+<ul>
+<li><code>.select_dtypes(include=['float64', 'int64'])</code>：只选数值列（字符串列不画箱线图）</li>
+<li><code>enumerate(列表, 1)</code>：从 1 开始编号（subplot 索引从 1 开始）</li>
+<li><code>plt.subplot(行, 列, 索引)</code>：在 3×4 网格的第 i 个位置画图</li>
+</ul>
+<hr>
+<h5>② 异常值处理：IQR 方法（考点）</h5>
+<p><strong>IQR 方法原理</strong>：</p>
+<ul>
+<li><strong>IQR</strong>（Interquartile Range，四分位距）= Q3 - Q1</li>
+<li><strong>下界</strong> = Q1 - 1.5 × IQR</li>
+<li><strong>上界</strong> = Q3 + 1.5 × IQR</li>
+<li>超出上下界的值视为异常值</li>
+</ul>
+<pre><code># 计算四分位数
+Q1 = data[numeric_cols].quantile(0.25)   # 每列的 25% 分位数
+Q3 = data[numeric_cols].quantile(0.75)   # 每列的 75% 分位数
+IQR = Q3 - Q1
+
+# 定义异常值条件（任意列超出边界）
+lower_bound = Q1 - 1.5 * IQR
+upper_bound = Q3 + 1.5 * IQR
+
+# 过滤异常值：保留所有列都在边界内的行
+data_cleaned = data[~((data[numeric_cols] &lt; lower_bound) | 
+                       (data[numeric_cols] &gt; upper_bound)).any(axis=1)]</code></pre>
+<p><strong>易错点</strong>：</p>
+<ul>
+<li><code>~</code> 表示取反（保留<strong>非</strong>异常值的行）</li>
+<li><code>.any(axis=1)</code>：每行只要有一列异常就标记为 True</li>
+<li><code>[~(...)]</code>：最终保留所有列都正常的行</li>
+</ul>
+<hr>
+<h5>③ 重复值检测与删除</h5>
+<pre><code># 检测重复行（返回布尔列，True=重复）
+duplicates = data_cleaned.duplicated()
+num_duplicates = duplicates.sum()
+
+# 删除重复行（默认保留第一次出现的行）
+data_cleaned = data_cleaned[~duplicates]
+# 或者一行写法：
+# data_cleaned = data_cleaned.drop_duplicates()
+
+print(f&#x27;删除的重复行数: {num_duplicates}&#x27;)</code></pre>
+<p><strong>注意</strong>：<code>.duplicated()</code> 默认判断<strong>所有列</strong>完全相同才算重复。</p>
+<hr>
+<h5>④ 数据归一化：MinMaxScaler</h5>
+<p><strong>目的</strong>：将不同量纲的特征缩放到 [0, 1] 区间，避免大数值特征主导模型。</p>
+<pre><code>from sklearn.preprocessing import MinMaxScaler
+
+scaler = MinMaxScaler()
+data_cleaned[numeric_cols] = scaler.fit_transform(data_cleaned[numeric_cols])</code></pre>
+<p><strong>原理</strong>：$x' = \frac{x - min}{max - min}$</p>
+<p><strong>易错点</strong>：只对数值列归一化，字符串列（如 ID）跳过。</p>
+<hr>
+<h5>⑤ 特征工程：创建新特征</h5>
+<pre><code># 示例：创建收入负债比特征
+data_cleaned[&#x27;IncomeToDebtRatio&#x27;] = (
+    data_cleaned[&#x27;MonthlyIncome&#x27;] / data_cleaned[&#x27;DebtRatio&#x27;]
+)</code></pre>
+<p><strong>考试要求</strong>：题目会指定创建哪些特征，按要求计算即可。</p>
+<hr>
+<h5>⑥ 分离特征与目标变量</h5>
+<pre><code># 设定目标变量
+target_variable = &#x27;SeriousDlqin2yrs&#x27;
+
+# X = 所有特征列（去掉目标变量）
+X = data_cleaned.drop(columns=[target_variable])
+
+# y = 目标变量
+y = data_cleaned[target_variable]</code></pre>
+<hr>
+<h5>⑦ 数据集划分</h5>
+<pre><code>from sklearn.model_selection import train_test_split
+
+# 划分训练集（80%）和测试集（20%）
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, 
+    test_size=0.2,      # 测试集占 20%
+    random_state=42     # 固定随机种子，保证可复现
+)
+
+print(f&#x27;训练数据形状: {X_train.shape}&#x27;)
+print(f&#x27;测试数据形状: {X_test.shape}&#x27;)</code></pre>
+<p><strong>参数解释</strong>：</p>
+<ul>
+<li><code>test_size=0.2</code>：测试集占比（训练集自动为 80%）</li>
+<li><code>random_state=42</code>：随机种子，保证每次划分结果相同</li>
+</ul>
+<hr>
+<h5>⑧ 保存清洗后的数据</h5>
+<pre><code>cleaned_file_path = &#x27;2.1.3_cleaned_data.csv&#x27;
+data_cleaned.to_csv(cleaned_file_path, index=False)</code></pre>
+<p><strong>注意</strong>：<code>index=False</code> 不保存行号列（考试必加）。</p>
+<hr>
+<h4>三、完整代码流程</h4>
+<pre><code>import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.preprocessing import MinMaxScaler
+from sklearn.model_selection import train_test_split
+
+# ① 加载数据
+data = pd.read_csv(&#x27;finance数据集.csv&#x27;)
+data.head()
+
+# ② 异常值检测（箱线图）
+plt.figure(figsize=(12, 8))
+numeric_cols = data.select_dtypes(include=[&#x27;float64&#x27;, &#x27;int64&#x27;]).columns
+
+for i, col in enumerate(numeric_cols, 1):
+    plt.subplot(3, 4, i)
+    sns.boxplot(x=data[col])
+    plt.title(col)
+
+plt.tight_layout()
+plt.show()
+
+# ② 异常值处理（IQR 方法）
+Q1 = data[numeric_cols].quantile(0.25)
+Q3 = data[numeric_cols].quantile(0.75)
+IQR = Q3 - Q1
+
+data_cleaned = data[~((data[numeric_cols] &lt; (Q1 - 1.5 * IQR)) | 
+                       (data[numeric_cols] &gt; (Q3 + 1.5 * IQR))).any(axis=1)]
+
+# ③ 重复值处理
+duplicates = data_cleaned.duplicated()
+num_duplicates = duplicates.sum()
+data_cleaned = data_cleaned[~duplicates]
+print(f&#x27;删除的重复行数: {num_duplicates}&#x27;)
+
+# ④ 归一化
+scaler = MinMaxScaler()
+data_cleaned[numeric_cols] = scaler.fit_transform(data_cleaned[numeric_cols])
+
+# ⑤ 特征工程（示例，实际按题目要求）
+# data_cleaned[&#x27;IncomeToDebtRatio&#x27;] = ...
+
+# ⑥ 设定目标变量
+target_variable = &#x27;SeriousDlqin2yrs&#x27;
+X = data_cleaned.drop(columns=[target_variable])
+y = data_cleaned[target_variable]
+
+# ⑦ 数据集划分
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42
+)
+
+print(f&#x27;训练数据形状: {X_train.shape}&#x27;)
+print(f&#x27;测试数据形状: {X_test.shape}&#x27;)
+
+# ⑧ 保存清洗后的数据
+data_cleaned.to_csv(&#x27;2.1.3_cleaned_data.csv&#x27;, index=False)</code></pre>
+<hr>
+<h4>四、易错点（考试陷阱）</h4>
+<h5>⚠️ 陷阱 1：IQR 过滤条件写反</h5>
+<pre><code># ❌ 错误（保留了异常值）
+data_cleaned = data[(data[numeric_cols] &lt; lower) | (data[numeric_cols] &gt; upper)]
+
+# ✅ 正确（过滤掉异常值，保留正常值）
+data_cleaned = data[~((data[numeric_cols] &lt; lower) | (data[numeric_cols] &gt; upper)).any(axis=1)]</code></pre>
+<p><strong>记忆口诀</strong>：<code>~</code> 取反 + <code>any(axis=1)</code> 任意列异常就删。</p>
+<hr>
+<h5>⚠️ 陷阱 2：<code>.quantile()</code> 只对数值列有效</h5>
+<pre><code># ❌ 错误（全部列包括字符串列）
+Q1 = data.quantile(0.25)   # 字符串列会报错
+
+# ✅ 正确（只选数值列）
+numeric_cols = data.select_dtypes(include=[&#x27;float64&#x27;, &#x27;int64&#x27;]).columns
+Q1 = data[numeric_cols].quantile(0.25)</code></pre>
+<hr>
+<h5>⚠️ 陷阱 3：归一化后覆盖原列</h5>
+<pre><code># ❌ 错误（创建新 DataFrame，原列未更新）
+scaler.fit_transform(data_cleaned[numeric_cols])
+
+# ✅ 正确（结果赋值回原列）
+data_cleaned[numeric_cols] = scaler.fit_transform(data_cleaned[numeric_cols])</code></pre>
+<hr>
+<h5>⚠️ 陷阱 4：<code>train_test_split</code> 参数顺序</h5>
+<pre><code># ❌ 错误（X 和 y 顺序颠倒）
+X_train, X_test, y_train, y_test = train_test_split(y, X, test_size=0.2)
+
+# ✅ 正确（先 X 后 y）
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)</code></pre>
+<hr>
+<h4>五、答题卷参考答案</h4>
+<h5>数据清洗规范（3 分，每点 1 分）</h5>
+<p>1. <strong>异常值处理</strong>：使用 IQR 方法检测并删除超出 Q1-1.5×IQR 和 Q3+1.5×IQR 边界的数据</p>
+<p>2. <strong>重复值处理</strong>：使用 <code>.duplicated()</code> 检测重复行，使用 <code>.drop_duplicates()</code> 删除（保留首次出现）</p>
+<p>3. <strong>数据标准化</strong>：使用 <code>MinMaxScaler</code> 对数值型特征进行归一化，缩放到 [0,1] 区间</p>
+<h5>特征工程规范（2 分，每点 1 分）</h5>
+<p>1. <strong>特征创建</strong>：根据业务逻辑创建衍生特征（如收入负债比 IncomeToDebtRatio），提升模型表达能力</p>
+<p>2. <strong>特征选择</strong>：分离特征变量 X（去除目标变量）和目标变量 y，为模型训练做准备</p>
+<hr>
+<h4>六、自测题</h4>
+<p>1. IQR 方法中，为什么要用 <code>1.5 × IQR</code> 而不是 <code>2 × IQR</code>？</p>
+<p>2. <code>.any(axis=1)</code> 和 <code>.any(axis=0)</code> 的区别是什么？</p>
+<p>3. <code>MinMaxScaler</code> 和标准化（Z-score）的区别是什么？各适用什么场景？</p>
+<details>
+<summary>参考答案（先自测再看）</summary>
+<p>1. <strong>1.5 × IQR 是统计学约定</strong>：</p>
+<ul>
+<li>1.5 倍是经典的离群点判定标准（Tukey 箱线图规则）</li>
+<li>在正态分布下，约 99.3% 的数据在此范围内</li>
+<li>2 倍太宽松，会漏掉部分异常值；1 倍太严格，会误删正常值</li>
+</ul>
+<p>2. <strong>axis 参数方向</strong>：</p>
+<ul>
+<li><code>axis=1</code>：横向（每行）操作，检查每行是否有任意列满足条件</li>
+<li><code>axis=0</code>：纵向（每列）操作，检查每列是否有任意行满足条件</li>
+<li>IQR 异常值过滤用 <code>axis=1</code>，因为要删除「任意列异常」的行</li>
+</ul>
+<p>3. <strong>归一化 vs 标准化</strong>：</p>
+<ul>
+<li><strong>MinMaxScaler</strong>（归一化）：缩放到 [0,1]，保留原始分布形状，适合神经网络（需要固定范围）</li>
+<li><strong>StandardScaler</strong>（标准化）：转为均值 0、标准差 1，适合线性回归（需要可比较的量纲）</li>
+<li>本题用 MinMaxScaler，因为是为机器学习模型准备数据</li>
+</ul>
+</details>
+<hr>
+<h4>七、关联概念（已入知识库）</h4>
+<ul>
+<li><span class="wikilink">concepts/异常值检测与处理</span>（新增）</li>
+<li><span class="wikilink">concepts/数据清洗</span>（新增）</li>
+<li><span class="wikilink">concepts/数据标准化</span>（新增）</li>
+<li><span class="wikilink">concepts/特征工程</span>（新增）</li>
+<li><span class="wikilink">concepts/数据集划分</span>（新增）</li>
+<li><span class="wikilink">concepts/数据持久化</span>（新增）</li>
+<li><span class="wikilink">concepts/groupby-aggregation</span>（1.1.1 已学，本单元未用但答题卷可能涉及）</li>
+</ul></div>
+<section class="concepts"><h2>知识点卡片</h2><section class="concept-card"><h3>异常值检测与处理</h3><div class="content"><h3>异常值检测与处理</h3>
+<ul>
+<li><strong>来源章节</strong>: 2.1.3</li>
+<li><strong>定义</strong>: 使用统计方法识别并过滤数据中偏离正常范围的极端值</li>
+<li><strong>检测方法</strong>:</li>
+<li><strong>箱线图可视化</strong>: <code>plt.boxplot()</code> 或 <code>sns.boxplot()</code> 直观展示异常值分布</li>
+<li><strong>IQR 方法</strong>: 四分位距（IQR = Q3 - Q1）判定边界</li>
+<li>下界 = Q1 - 1.5 × IQR</li>
+<li>上界 = Q3 + 1.5 × IQR</li>
+<li>超出边界视为异常值</li>
+<li><strong>处理步骤</strong>:</li>
+<pre><code>  # 1. 计算分位数
+  Q1 = data[numeric_cols].quantile(0.25)
+  Q3 = data[numeric_cols].quantile(0.75)
+  IQR = Q3 - Q1
+  
+  # 2. 定义边界
+  lower = Q1 - 1.5 * IQR
+  upper = Q3 + 1.5 * IQR
+  
+  # 3. 过滤异常值（保留正常值）
+  data_cleaned = data[~((data[numeric_cols] &lt; lower) | 
+                         (data[numeric_cols] &gt; upper)).any(axis=1)]</code></pre>
+<li><strong>易错点</strong>:</li>
+<li><code>~</code> 表示取反，保留非异常值</li>
+<li><code>.any(axis=1)</code> 表示每行只要有一列异常就标记为 True</li>
+<li><code>quantile()</code> 只对数值列有效，需要先用 <code>.select_dtypes()</code> 筛选</li>
+<li><strong>关联</strong>: <span class="wikilink">数据清洗</span> · <span class="wikilink">数据标准化</span></li>
+</ul></div></section><section class="concept-card"><h3>数据持久化</h3><div class="content"><h3>数据持久化</h3>
+<ul>
+<li><strong>来源章节</strong>: 2.1.3</li>
+<li><strong>定义</strong>: 将处理后的数据保存到文件，便于后续使用或提交</li>
+<li><strong>用法</strong>:</li>
+<pre><code>  # 保存为 CSV 文件
+  df.to_csv(&#x27;cleaned_data.csv&#x27;, index=False)</code></pre>
+<li><strong>参数说明</strong>:</li>
+<li>第一个参数：文件路径（相对路径，保存在当前工作目录）</li>
+<li><code>index=False</code>：<strong>不保存行号列</strong>（考试必加，否则会多一列 0,1,2...）</li>
+<li><code>encoding='utf-8'</code>：指定编码（中文数据推荐，默认已是 utf-8）</li>
+<li><strong>其他常用保存格式</strong>:</li>
+<pre><code>  # Excel 格式（需要 openpyxl）
+  df.to_excel(&#x27;data.xlsx&#x27;, index=False)
+  
+  # JSON 格式
+  df.to_json(&#x27;data.json&#x27;, orient=&#x27;records&#x27;)
+  
+  # Pickle 格式（保留数据类型，仅 Python 使用）
+  df.to_pickle(&#x27;data.pkl&#x27;)</code></pre>
+<li><strong>读取对应格式</strong>:</li>
+<pre><code>  df = pd.read_csv(&#x27;cleaned_data.csv&#x27;)
+  df = pd.read_excel(&#x27;data.xlsx&#x27;)
+  df = pd.read_json(&#x27;data.json&#x27;)
+  df = pd.read_pickle(&#x27;data.pkl&#x27;)</code></pre>
+<li><strong>易错点</strong>:</li>
+<li>❌ 忘记 <code>index=False</code>，导致 CSV 第一列是无意义的行号</li>
+<li>❌ 文件名写错（如 <code>2.1.3_cleaned_data.csv</code> 写成 <code>213_cleaned_data.csv</code>）</li>
+<li>❌ 保存前未检查数据形状（<code>df.shape</code>），可能保存了错误的中间结果</li>
+<li><strong>考试要求</strong>:</li>
+<li>文件名按题目要求命名（如 <code>2.1.3_cleaned_data.csv</code>）</li>
+<li>保存到指定目录（考生文件夹：桌面「准考证号+身份证后6位」）</li>
+<li>保存前确认数据已完成所有清洗步骤</li>
+<li><strong>关联</strong>: <span class="wikilink">to-csv</span> · <span class="wikilink">数据清洗</span> · <span class="wikilink">pandas-read-csv</span></li>
+</ul></div></section><section class="concept-card"><h3>数据标准化</h3><div class="content"><h3>数据标准化</h3>
+<ul>
+<li><strong>来源章节</strong>: 2.1.3</li>
+<li><strong>定义</strong>: 将不同量纲的数值特征缩放到统一范围，消除量纲影响，提升模型训练效果</li>
+<li><strong>MinMaxScaler（归一化）</strong>:</li>
+<li><strong>公式</strong>: $x' = \frac{x - min}{max - min}$</li>
+<li><strong>范围</strong>: [0, 1]</li>
+<li><strong>用法</strong>:</li>
+<pre><code>    from sklearn.preprocessing import MinMaxScaler
+    
+    scaler = MinMaxScaler()
+    # 只对数值列归一化
+    numeric_cols = df.select_dtypes(include=[&#x27;float64&#x27;, &#x27;int64&#x27;]).columns
+    df[numeric_cols] = scaler.fit_transform(df[numeric_cols])</code></pre>
+<li><strong>适用场景</strong>: 神经网络、图像处理（需要固定 [0,1] 范围）</li>
+<li><strong>StandardScaler（标准化）</strong>:</li>
+<li><strong>公式</strong>: $z = \frac{x - \mu}{\sigma}$（转为均值 0、标准差 1）</li>
+<li><strong>适用场景</strong>: 线性回归、逻辑回归（需要可比较的量纲）</li>
+<li><strong>选择原则</strong>:</li>
+<li>数据分布接近正态 → StandardScaler</li>
+<li>数据有明确边界（如年龄、评分）→ MinMaxScaler</li>
+<li>神经网络通常用 MinMaxScaler</li>
+<li><strong>易错点</strong>:</li>
+<li>归一化后必须赋值回原列：<code>df[cols] = scaler.fit_transform(df[cols])</code></li>
+<li>只对数值列操作，字符串列（如 ID）跳过</li>
+<li><code>fit_transform()</code> 用于训练集，测试集只用 <code>transform()</code>（避免数据泄漏）</li>
+<li><strong>关联</strong>: <span class="wikilink">数据清洗</span> · <span class="wikilink">特征工程</span> · <span class="wikilink">select-dtypes</span></li>
+</ul></div></section><section class="concept-card"><h3>数据清洗</h3><div class="content"><h3>数据清洗</h3>
+<ul>
+<li><strong>来源章节</strong>: 2.1.3</li>
+<li><strong>定义</strong>: 检测并处理数据质量问题（缺失值、重复值、异常值），确保数据可用于模型训练</li>
+<li><strong>核心操作</strong>:</li>
+<li><strong>加载数据</strong>: <code>pd.read_csv('file.csv')</code></li>
+<li><strong>数据探索</strong>: <code>df.head()</code>、<code>df.info()</code>、<code>df.describe()</code></li>
+<li><strong>重复值处理</strong>:</li>
+<pre><code>    duplicates = df.duplicated()           # 检测重复行
+    num_duplicates = duplicates.sum()      # 统计数量
+    df = df.drop_duplicates()              # 删除重复行（保留首次出现）
+    # 或布尔索引：df = df[~duplicates]</code></pre>
+<li><strong>异常值处理</strong>: 见 <span class="wikilink">异常值检测与处理</span></li>
+<li><strong>缺失值处理</strong>: <code>df.dropna()</code> 删除 / <code>df.fillna()</code> 填充（1.1.2 已学）</li>
+<li><strong>检查步骤</strong>:</li>
+</ul>
+<p>1. 查看数据前几行 <code>head()</code></p>
+<p>2. 统计缺失值 <code>isnull().sum()</code></p>
+<p>3. 检测重复行 <code>duplicated().sum()</code></p>
+<p>4. 可视化异常值（箱线图）</p>
+<ul>
+<li><strong>易错点</strong>:</li>
+<li><code>.duplicated()</code> 默认判断所有列完全相同才算重复</li>
+<li><code>.drop_duplicates()</code> 默认保留第一次出现的行</li>
+<li>布尔索引过滤用 <code>df[~duplicates]</code>，<code>~</code> 表示取反</li>
+<li><strong>关联</strong>: <span class="wikilink">异常值检测与处理</span> · <span class="wikilink">数据标准化</span> · <span class="wikilink">fillna-method</span></li>
+</ul></div></section><section class="concept-card"><h3>数据集划分</h3><div class="content"><h3>数据集划分</h3>
+<ul>
+<li><strong>来源章节</strong>: 2.1.3</li>
+<li><strong>定义</strong>: 将数据按比例分为训练集和测试集，用于模型训练和评估</li>
+<li><strong>用法</strong>:</li>
+<pre><code>  from sklearn.model_selection import train_test_split
+  
+  # 划分数据（训练集 80%，测试集 20%）
+  X_train, X_test, y_train, y_test = train_test_split(
+      X, y, 
+      test_size=0.2,      # 测试集占比
+      random_state=42     # 随机种子（保证可复现）
+  )
+  
+  print(f&#x27;训练数据形状: {X_train.shape}&#x27;)
+  print(f&#x27;测试数据形状: {X_test.shape}&#x27;)</code></pre>
+<li><strong>参数说明</strong>:</li>
+<li><code>test_size</code>：测试集比例（0.2 表示 20%，训练集自动为 80%）</li>
+<li><code>random_state</code>：随机种子，固定后每次划分结果相同（可复现实验）</li>
+<li><code>stratify</code>：分层采样参数（分类任务中保证各类别比例，本题未用）</li>
+<li><strong>返回值顺序</strong>（易错点）:</li>
+<pre><code>  # ✅ 正确顺序：X_train, X_test, y_train, y_test
+  X_train, X_test, y_train, y_test = train_test_split(X, y, ...)
+  
+  # ❌ 错误（X 和 y 顺序颠倒）
+  X_train, X_test, y_train, y_test = train_test_split(y, X, ...)</code></pre>
+<li><strong>训练集 vs 测试集</strong>:</li>
+<li><strong>训练集</strong>：用于训练模型参数</li>
+<li><strong>测试集</strong>：用于评估模型泛化能力（模型从未见过的数据）</li>
+<li><strong>验证集</strong>（本题未用）：用于调参（从训练集再划分或交叉验证）</li>
+<li><strong>易错点</strong>:</li>
+<li>先做特征工程（创建特征、分离 X/y），再划分数据集</li>
+<li><code>test_size=0.2</code> 不是 <code>test_size=20</code>（是比例不是百分比）</li>
+<li>归一化在划分后分别对训练集和测试集操作（避免数据泄漏）</li>
+<li><strong>关联</strong>: <span class="wikilink">特征工程</span> · <span class="wikilink">数据标准化</span></li>
+</ul></div></section><section class="concept-card"><h3>特征工程</h3><div class="content"><h3>特征工程</h3>
+<ul>
+<li><strong>来源章节</strong>: 2.1.3</li>
+<li><strong>定义</strong>: 基于原始数据创建、选择、转换特征，提升模型性能</li>
+<li><strong>核心操作</strong>:</li>
+<li><strong>特征创建</strong>（Feature Creation）:</li>
+<pre><code>    # 示例：创建收入负债比特征
+    df[&#x27;IncomeToDebtRatio&#x27;] = df[&#x27;MonthlyIncome&#x27;] / df[&#x27;DebtRatio&#x27;]
+    
+    # 示例：年龄分段
+    df[&#x27;AgeGroup&#x27;] = pd.cut(df[&#x27;Age&#x27;], bins=[0, 30, 50, 100], 
+                             labels=[&#x27;青年&#x27;, &#x27;中年&#x27;, &#x27;老年&#x27;])</code></pre>
+<li><strong>特征选择</strong>（Feature Selection）:</li>
+<pre><code>    # 分离特征变量 X 和目标变量 y
+    target = &#x27;SeriousDlqin2yrs&#x27;
+    X = df.drop(columns=[target])   # 特征矩阵
+    y = df[target]                   # 目标变量</code></pre>
+<li><strong>特征转换</strong>: 见 <span class="wikilink">数据标准化</span>（归一化、标准化）</li>
+<li><strong>常见衍生特征</strong>:</li>
+<li>比值特征：收入/支出、点击率、转化率</li>
+<li>交叉特征：年龄×收入、城市×职业</li>
+<li>时间特征：星期几、是否节假日、时间间隔</li>
+<li>统计特征：历史平均值、最大值、方差</li>
+<li><strong>特征工程规范</strong>（答题卷参考）:</li>
+</ul>
+<p>1. 根据业务逻辑创建衍生特征，提升模型表达能力</p>
+<p>2. 分离特征变量 X 和目标变量 y，为模型训练做准备</p>
+<p>3. 删除无关特征（如 ID、时间戳），避免模型过拟合</p>
+<ul>
+<li><strong>易错点</strong>:</li>
+<li><code>drop(columns=[...])</code> 不修改原 DataFrame，需要赋值 <code>X = df.drop(...)</code></li>
+<li>创建新特征前要先清洗数据（处理缺失值、异常值）</li>
+<li>测试集的特征工程要与训练集保持一致</li>
+<li><strong>关联</strong>: <span class="wikilink">数据标准化</span> · <span class="wikilink">pd-cut-binning</span> · <span class="wikilink">数据集划分</span></li>
+</ul></div></section></section>
+</body>
+</html>

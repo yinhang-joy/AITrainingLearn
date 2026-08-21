@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>2.2.3 日常运动量随机森林预测模型开发与测试</title>
+<style>
+:root { --bg:#fff; --fg:#1a1a1a; --line:#e5e5e5; --muted:#737373; --accent:#2563eb; --chip:#f5f5f5; }
+@media (prefers-color-scheme:dark) { :root:not([data-theme="light"]) { --bg:#0a0a0a; --fg:#ededed; --line:#262626; --muted:#a3a3a3; --accent:#60a5fa; --chip:#1a1a1a; } }
+:root[data-theme="dark"] { --bg:#0a0a0a; --fg:#ededed; --line:#262626; --muted:#a3a3a3; --accent:#60a5fa; --chip:#1a1a1a; }
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:var(--bg); color:var(--fg); font-family:system-ui,-apple-system,sans-serif; line-height:1.6; padding:20px; max-width:900px; margin:0 auto; }
+h1 { font-size:24px; margin:0 0 20px; padding-bottom:10px; border-bottom:2px solid var(--line); }
+h2 { font-size:20px; margin:24px 0 12px; color:var(--accent); }
+h3 { font-size:17px; margin:16px 0 8px; }
+h4 { font-size:15px; margin:12px 0 6px; }
+h5 { font-size:14px; margin:10px 0 4px; }
+p { margin:8px 0; }
+ul { margin:8px 0 8px 24px; }
+li { margin:3px 0; }
+pre { background:var(--chip); border:1px solid var(--line); border-radius:8px; padding:12px; overflow-x:auto; margin:12px 0; }
+code { font-family:Consolas,Monaco,monospace; font-size:13px; }
+p code { background:var(--chip); padding:2px 6px; border-radius:4px; }
+table { border-collapse:collapse; margin:12px 0; font-size:14px; width:100%; }
+th, td { border:1px solid var(--line); padding:6px 12px; text-align:left; }
+th { background:var(--chip); font-weight:600; }
+blockquote { border-left:4px solid var(--accent); margin:12px 0; padding:4px 14px; color:var(--muted); background:var(--chip); }
+hr { border:none; border-top:1px solid var(--line); margin:20px 0; }
+details summary { cursor:pointer; color:var(--accent); font-weight:500; user-select:none; }
+.wikilink { color:var(--accent); }
+.concepts { margin-top:40px; padding-top:20px; border-top:2px solid var(--line); }
+.concept-card { border:1px solid var(--line); border-radius:8px; padding:16px; margin:16px 0; background:var(--chip); }
+.concept-card h3 { margin-top:0; color:#9333ea; }
+.content > *:first-child { margin-top:0; }
+.content > *:last-child { margin-bottom:0; }
+</style>
+</head>
+<body>
+<h1>2.2.3 日常运动量随机森林预测模型开发与测试</h1>
+<div class="lecture-body"><h3>2.2.3 讲义：日常运动量随机森林预测模型开发与测试</h3>
+<ul>
+<li><strong>日期</strong>: 2026-08-20</li>
+<li><strong>状态</strong>: 待讲解</li>
+<li><strong>数据</strong>: <code>fitness analysis.csv</code>（18 列，包含性别、年龄、运动频率、健康评价等）</li>
+<li><strong>考核时间</strong>: 20 分钟，机考</li>
+</ul>
+<hr>
+<h4>一、任务解读（从需求到实现）</h4>
+<p><strong>核心思维：随机森林回归 = 数据预处理 + 模型训练 + 测试评估 + 对比优化。</strong> 这是一个完整的机器学习工作流程。</p>
+<table class='md'><thead><tr>
+<th>题目要求</th><th>对应实现</th>
+</tr></thead><tbody>
+<tr><td>加载数据集并显示前五行</td><td><code>pd.read_csv()</code> + <code>df.head()</code></td></tr>
+<tr><td>去除字符串空格</td><td><code>df.applymap()</code> + <code>str.strip()</code></td></tr>
+<tr><td>将分类变量转为数值</td><td><code>pd.get_dummies()</code></td></tr>
+<tr><td>年龄段文本转数值</td><td><code>df['Your age'].apply(lambda x: int(x.split(' ')[0]))</code></td></tr>
+<tr><td>划分训练集测试集</td><td><code>train_test_split(X, y, test_size=0.2)</code></td></tr>
+<tr><td>随机森林模型训练</td><td><code>RandomForestRegressor(n_estimators=100)</code></td></tr>
+<tr><td>模型保存</td><td><code>pickle.dump(model, file)</code></td></tr>
+<tr><td>模型评估</td><td><code>mean_squared_error()</code> + <code>r2_score()</code></td></tr>
+<tr><td>XGBoost 对比优化</td><td><code>xgb.XGBRegressor(n_estimators=100)</code></td></tr>
+</tbody></table>
+<p>五个核心步骤：</p>
+<p>1. <strong>数据加载与清洗</strong>：读取 CSV，去除空格，查看数据结构</p>
+<p>2. <strong>特征工程</strong>：分类变量编码（性别、运动重要性、健康评价），年龄段文本转数值</p>
+<p>3. <strong>模型训练</strong>：随机森林回归（100 棵树），保存模型文件</p>
+<p>4. <strong>模型评估</strong>：训练集/测试集得分、MSE、R²</p>
+<p>5. <strong>模型优化</strong>：使用 XGBoost 对比分析错误案例</p>
+<hr>
+<h4>二、知识点讲解</h4>
+<h5>① 数据加载与清洗</h5>
+<pre><code># 加载数据
+df = pd.read_csv(&#x27;fitness analysis.csv&#x27;)
+print(df.head())  # 显示前 5 行
+
+# 去除所有字符串字段的前后空格
+df = df.applymap(lambda x: x.strip() if isinstance(x, str) else x)
+df.columns = df.columns.str.strip()  # 清理列名</code></pre>
+<p><strong>关键点</strong>：</p>
+<ul>
+<li><code>df.applymap()</code>：对 DataFrame 每个单元格应用函数（pandas 1.x 用 <code>applymap</code>，2.x 改名 <code>map</code>）</li>
+<li><code>isinstance(x, str)</code>：判断是否为字符串，避免对数字类型调用 <code>strip()</code> 报错</li>
+<li><code>df.columns.str.strip()</code>：列名也可能带空格，导致后续选列报错</li>
+</ul>
+<blockquote><strong>为什么要去空格？</strong> 原始数据可能是 <code>"Female "</code> 而非 <code>"Female"</code>，会导致编码失败或特征不一致。</blockquote>
+<h5>② 特征编码：分类变量转数值</h5>
+<pre><code># 选择特征列
+X = df[[&#x27;Your gender&#x27;, &#x27;How important is exercise to you ?&#x27;, 
+        &#x27;How healthy do you consider yourself?&#x27;]]
+
+# 独热编码（One-Hot Encoding）
+X = pd.get_dummies(X)</code></pre>
+<p><strong><code>pd.get_dummies()</code> 工作原理</strong>：</p>
+<ul>
+<li>输入：包含分类变量的 DataFrame</li>
+<li>输出：每个类别变成一列，取值 0/1</li>
+</ul>
+<p>示例：</p>
+<pre><code>原始数据:
+  性别      运动重要性
+  Female   2
+  Male     3
+
+pd.get_dummies() 后:
+  性别_Female  性别_Male  运动重要性_2  运动重要性_3
+  1           0          1            0
+  0           1          0            1</code></pre>
+<p><strong>为什么要编码？</strong> 机器学习算法只能处理数值，不能直接处理 "Female"、"Male" 这样的文本。</p>
+<h5>③ 目标变量转换：年龄段文本 → 数值</h5>
+<pre><code># 原始数据：&quot;19 to 25&quot;、&quot;15 to 18&quot;、&quot;40 and above&quot;
+y = df[&#x27;Your age&#x27;].apply(lambda x: int(x.split(&#x27; &#x27;)[0]))
+# 结果：19、15、40</code></pre>
+<p><strong>拆解</strong>：</p>
+<ul>
+<li><code>x.split(' ')[0]</code>：按空格切分，取第一个元素（"19 to 25" → "19"）</li>
+<li><code>int(...)</code>：字符串转整数</li>
+<li><code>.apply(lambda x: ...)</code>：对每一行应用函数</li>
+</ul>
+<p><strong>为什么取第一个数字？</strong> 回归任务需要一个具体数值作为目标，取年龄段下界是简化策略。</p>
+<h5>④ 数据集划分</h5>
+<pre><code>X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42
+)</code></pre>
+<p>三个参数：</p>
+<ul>
+<li><code>test_size=0.2</code>：测试集占 20%，训练集 80%</li>
+<li><code>random_state=42</code>：随机种子，保证每次运行结果相同（考试必加）</li>
+<li>返回 4 个变量：训练特征、测试特征、训练标签、测试标签</li>
+</ul>
+<p><strong>为什么要划分？</strong> 用训练集训练模型，用测试集评估泛化能力，避免「过拟合」。</p>
+<h5>⑤ 随机森林回归建模</h5>
+<pre><code># 创建模型（100 棵决策树）
+rf_model = RandomForestRegressor(n_estimators=100, random_state=42)
+
+# 训练模型
+rf_model.fit(X_train, y_train)
+
+# 预测
+y_pred = rf_model.predict(X_test)</code></pre>
+<p><strong>随机森林原理</strong>：</p>
+<ul>
+<li>构建 100 棵决策树，每棵树用<strong>随机抽样</strong>的数据训练</li>
+<li>预测时取所有树的平均值（回归）或投票（分类）</li>
+<li>优点：准确性高、抗过拟合、不易受异常值影响</li>
+</ul>
+<p><strong>参数说明</strong>：</p>
+<ul>
+<li><code>n_estimators=100</code>：树的数量，越多越准但越慢</li>
+<li><code>random_state=42</code>：保证结果可复现</li>
+</ul>
+<h5>⑥ 模型持久化</h5>
+<pre><code># 保存模型
+with open(&#x27;2.2.3_model.pkl&#x27;, &#x27;wb&#x27;) as model_file:
+    pickle.dump(rf_model, model_file)
+
+# 加载模型（后续使用）
+with open(&#x27;2.2.3_model.pkl&#x27;, &#x27;rb&#x27;) as f:
+    model = pickle.load(f)</code></pre>
+<p><strong>pickle 是什么？</strong> Python 序列化库，可以把对象（模型）保存成文件，下次直接加载无需重新训练。</p>
+<h5>⑦ 模型评估</h5>
+<pre><code># 训练集和测试集得分
+train_score = rf_model.score(X_train, y_train)
+test_score = rf_model.score(X_test, y_test)
+
+# 均方误差（MSE）
+mse = mean_squared_error(y_test, y_pred)
+
+# 决定系数（R²）
+r2 = r2_score(y_test, y_pred)</code></pre>
+<p><strong>四个评估指标</strong>：</p>
+<ul>
+<li><strong>训练集得分</strong>：模型在训练数据上的 R²，通常较高</li>
+<li><strong>测试集得分</strong>：模型在未见过数据上的 R²，<strong>关键指标</strong></li>
+<li><strong>MSE</strong>（均方误差）：预测值与真实值差的平方的平均，越小越好</li>
+<li><strong>R²</strong>（决定系数）：0～1，越接近 1 表示拟合越好</li>
+</ul>
+<p><strong>判断标准</strong>：</p>
+<ul>
+<li>训练分 &gt;&gt; 测试分：过拟合（模型记住了训练数据但不会推广）</li>
+<li>训练分 ≈ 测试分：正常</li>
+<li>两者都很低：欠拟合（模型太简单）</li>
+</ul>
+<h5>⑧ XGBoost 对比优化</h5>
+<pre><code># 初始化 XGBoost 模型
+xgb_model = xgb.XGBRegressor(n_estimators=100, random_state=42)
+
+# 训练
+xgb_model.fit(X_train, y_train)
+
+# 预测
+y_pred_xgb = xgb_model.predict(X_test)
+
+# 评估
+xgb_train_score = xgb_model.score(X_train, y_train)
+xgb_test_score = xgb_model.score(X_test, y_test)
+xgb_mse = mean_squared_error(y_test, y_pred_xgb)
+xgb_r2 = r2_score(y_test, y_pred_xgb)</code></pre>
+<p><strong>XGBoost vs 随机森林</strong>：</p>
+<ul>
+<li><strong>随机森林</strong>：并行构建多棵独立树，简单快速</li>
+<li><strong>XGBoost</strong>：串行构建树，后面的树专门修正前面的错误，通常更准但更慢</li>
+</ul>
+<p><strong>什么时候用 XGBoost？</strong></p>
+<ul>
+<li>随机森林结果不够好时</li>
+<li>需要更高精度时</li>
+<li>有充足训练时间时</li>
+</ul>
+<hr>
+<h4>三、完整解题流程演示</h4>
+<pre><code>import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestRegressor
+import pickle
+from sklearn.metrics import mean_squared_error, r2_score
+import xgboost as xgb
+
+# 1. 加载数据
+df = pd.read_csv(&#x27;fitness analysis.csv&#x27;)
+print(df.head())
+
+# 2. 数据清洗
+df = df.applymap(lambda x: x.strip() if isinstance(x, str) else x)
+df.columns = df.columns.str.strip()
+
+# 3. 特征工程
+X = df[[&#x27;Your gender&#x27;, &#x27;How important is exercise to you ?&#x27;, 
+        &#x27;How healthy do you consider yourself?&#x27;]]
+X = pd.get_dummies(X)
+
+y = df[&#x27;Your age&#x27;].apply(lambda x: int(x.split(&#x27; &#x27;)[0]))
+
+# 4. 数据集划分
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42
+)
+
+# 5. 随机森林训练
+rf_model = RandomForestRegressor(n_estimators=100, random_state=42)
+rf_model.fit(X_train, y_train)
+
+# 6. 保存模型
+with open(&#x27;2.2.3_model.pkl&#x27;, &#x27;wb&#x27;) as model_file:
+    pickle.dump(rf_model, model_file)
+
+# 7. 预测并保存结果
+y_pred = rf_model.predict(X_test)
+results_df = pd.DataFrame(y_pred, columns=[&#x27;预测结果&#x27;])
+results_df.to_csv(&#x27;2.2.3_results.txt&#x27;, index=False)
+
+# 8. 模型评估
+train_score = rf_model.score(X_train, y_train)
+test_score = rf_model.score(X_test, y_test)
+mse = mean_squared_error(y_test, y_pred)
+r2 = r2_score(y_test, y_pred)
+
+with open(&#x27;2.2.3_report.txt&#x27;, &#x27;w&#x27;) as report_file:
+    report_file.write(f&#x27;训练集得分: {train_score}\n&#x27;)
+    report_file.write(f&#x27;测试集得分: {test_score}\n&#x27;)
+    report_file.write(f&#x27;均方误差(MSE): {mse}\n&#x27;)
+    report_file.write(f&#x27;决定系数(R^2): {r2}\n&#x27;)
+
+# 9. XGBoost 对比
+xgb_model = xgb.XGBRegressor(n_estimators=100, random_state=42)
+xgb_model.fit(X_train, y_train)
+y_pred_xgb = xgb_model.predict(X_test)
+
+results_df_xgb = pd.DataFrame(y_pred_xgb, columns=[&#x27;预测结果&#x27;])
+results_df_xgb.to_csv(&#x27;2.2.3_results_xgb.txt&#x27;, index=False)
+
+with open(&#x27;2.2.3_report_xgb.txt&#x27;, &#x27;w&#x27;) as xgb_report_file:
+    xgb_report_file.write(f&#x27;XGBoost训练集得分: {xgb_model.score(X_train, y_train)}\n&#x27;)
+    xgb_report_file.write(f&#x27;XGBoost测试集得分: {xgb_model.score(X_test, y_test)}\n&#x27;)
+    xgb_report_file.write(f&#x27;XGBoost均方误差(MSE): {mean_squared_error(y_test, y_pred_xgb)}\n&#x27;)
+    xgb_report_file.write(f&#x27;XGBoost决定系数(R^2): {r2_score(y_test, y_pred_xgb)}\n&#x27;)</code></pre>
+<hr>
+<h4>四、考试注意事项（卷面要求）</h4>
+<ul>
+<li>20 分钟限时；ipynb <strong>只在下划线处填空，勿增删改其他代码</strong></li>
+<li>答题卷 <code>2.2.3.docx</code> 填写：训练集得分、测试集得分、MSE、R²、错误分析、改进建议</li>
+<li>生成文件保存到考生文件夹：</li>
+<li><code>2.2.3_model.pkl</code>（模型文件）</li>
+<li><code>2.2.3_results.txt</code>（随机森林预测结果）</li>
+<li><code>2.2.3_report.txt</code>（随机森林评估报告）</li>
+<li><code>2.2.3_results_xgb.txt</code>（XGBoost 预测结果）</li>
+<li><code>2.2.3_report_xgb.txt</code>（XGBoost 评估报告）</li>
+<li><code>2.2.3.html</code>（ipynb 运行后导出）</li>
+<li>考生文件夹命名：桌面「准考证号+身份证后六位」</li>
+</ul>
+<hr>
+<h4>五、自测题（先自测，再对答案）</h4>
+<p>1. <code>pd.get_dummies(X)</code> 做了什么？为什么要做这个操作？</p>
+<p>2. <code>train_test_split(X, y, test_size=0.2)</code> 返回几个变量？各是什么？</p>
+<p>3. 随机森林的 <code>n_estimators=100</code> 是什么意思？数字越大越好吗？</p>
+<p>4. 训练集得分 0.95，测试集得分 0.60，说明什么问题？</p>
+<p>5. MSE 和 R² 哪个越大越好？</p>
+<details>
+<summary>参考答案（先自测再看）</summary>
+<p>1. <strong>独热编码</strong>，把分类变量（如 "Female"/"Male"）转成数值（0/1）。因为机器学习算法只能处理数值，不能直接处理文本。</p>
+<p>2. 返回 4 个变量：<code>X_train</code>（训练特征）、<code>X_test</code>（测试特征）、<code>y_train</code>（训练标签）、<code>y_test</code>（测试标签）。</p>
+<p>3. 构建 100 棵决策树。数字越大模型越准但训练越慢，需要平衡。通常 100～500 是合理范围。</p>
+<p>4. <strong>过拟合</strong>。模型在训练集上表现很好，但在未见过的测试集上表现差，说明模型记住了训练数据但不会推广。</p>
+<p>5. <strong>R² 越大越好</strong>（0～1，越接近 1 越好）；<strong>MSE 越小越好</strong>（误差的平方，0 最好）。</p>
+</details>
+<hr>
+<h4>六、关联概念（已入知识库）</h4>
+<ul>
+<li><span class="wikilink">concepts/数据加载与清洗</span> · <span class="wikilink">concepts/特征编码</span> · <span class="wikilink">concepts/数据集划分</span> · <span class="wikilink">concepts/随机森林回归</span> · <span class="wikilink">concepts/模型评估指标</span> · <span class="wikilink">concepts/模型持久化</span></li>
+</ul></div>
+<section class="concepts"><h2>知识点卡片</h2><section class="concept-card"><h3>XGBoost回归</h3><div class="content"><h3>XGBoost回归</h3>
+<ul>
+<li><strong>来源章节</strong>: 2.2.3</li>
+<li><strong>定义</strong>: 梯度提升树算法，串行构建决策树，后面的树专门修正前面的错误，通常比随机森林更准确</li>
+<li><strong>用法</strong>:</li>
+<pre><code>  import xgboost as xgb
+  
+  # 初始化 XGBoost 回归模型
+  xgb_model = xgb.XGBRegressor(n_estimators=100, random_state=42)
+  
+  # 训练模型
+  xgb_model.fit(X_train, y_train)
+  
+  # 预测
+  y_pred_xgb = xgb_model.predict(X_test)
+  
+  # 评估
+  xgb_train_score = xgb_model.score(X_train, y_train)
+  xgb_test_score = xgb_model.score(X_test, y_test)</code></pre>
+<li><strong>核心参数</strong>:</li>
+<li><code>n_estimators=100</code>: 决策树数量</li>
+<li><code>random_state=42</code>: 随机种子</li>
+<li><code>learning_rate</code>: 学习率（默认 0.3），控制每棵树的贡献度</li>
+<li><code>max_depth</code>: 树的最大深度（默认 6）</li>
+<li><strong>工作原理</strong>:</li>
+</ul>
+<p>1. 构建第一棵树，预测结果</p>
+<p>2. 计算<strong>残差</strong>（真实值 - 预测值）</p>
+<p>3. 构建第二棵树，专门预测第一棵树的残差</p>
+<p>4. 重复步骤 2-3，每棵树修正前面的错误</p>
+<p>5. 最终预测 = 所有树的预测值累加</p>
+<ul>
+<li><strong>与随机森林对比</strong>:</li>
+<table class='md'><thead><tr>
+<th>维度</th><th>随机森林</th><th>XGBoost</th>
+</tr></thead><tbody>
+<tr><td>构建方式</td><td>并行（独立树）</td><td>串行（后树修正前树）</td></tr>
+<tr><td>速度</td><td>快</td><td>慢</td></tr>
+<tr><td>准确性</td><td>高</td><td>通常更高</td></tr>
+<tr><td>过拟合风险</td><td>低</td><td>中等（需调参）</td></tr>
+<tr><td>使用场景</td><td>快速原型、稳定性优先</td><td>竞赛、高精度需求</td></tr>
+<li><strong>什么时候用 XGBoost</strong>:</li>
+<li>随机森林结果不够好时</li>
+<li>需要更高精度时（如 Kaggle 竞赛）</li>
+<li>有充足训练时间时</li>
+<li>需要分析特征重要性时</li>
+<li><strong>考试中的作用</strong>: 作为对比模型分析随机森林的错误案例并改进预测结果</li>
+<li><strong>易错点</strong>:</li>
+<li>XGBoost 需要单独安装 <code>pip install xgboost</code></li>
+<li>参数调优复杂，默认参数通常够用</li>
+<li><strong>关联</strong>: <span class="wikilink">随机森林回归</span> · <span class="wikilink">模型评估指标</span> · <span class="wikilink">模型持久化</span></li>
+</ul>
+</tbody></table></div></section><section class="concept-card"><h3>数据加载与清洗</h3><div class="content"><h3>数据加载与清洗</h3>
+<ul>
+<li><strong>来源章节</strong>: 2.2.3</li>
+<li><strong>定义</strong>: 读取 CSV 数据集，去除字符串字段和列名的空格，确保数据格式一致</li>
+<li><strong>用法</strong>:</li>
+<pre><code>  df = pd.read_csv(&#x27;fitness analysis.csv&#x27;)
+  df.head()  # 显示前 5 行
+  
+  # 去除所有字符串字段的空格
+  df = df.applymap(lambda x: x.strip() if isinstance(x, str) else x)
+  
+  # 清理列名空格
+  df.columns = df.columns.str.strip()</code></pre>
+<li><strong>核心方法</strong>:</li>
+<li><code>pd.read_csv()</code>: 读取 CSV 文件为 DataFrame</li>
+<li><code>df.applymap()</code>: 对每个单元格应用函数（pandas 2.x 改名为 <code>df.map()</code>）</li>
+<li><code>isinstance(x, str)</code>: 判断是否为字符串类型</li>
+<li><code>str.strip()</code>: 去除字符串首尾空格</li>
+<li><code>df.columns.str.strip()</code>: 去除列名空格</li>
+<li><strong>易错点</strong>:</li>
+<li>原始数据可能是 <code>"Female "</code> 而非 <code>"Female"</code>，导致后续编码失败</li>
+<li>列名带空格会导致 <code>df['列名']</code> 选列报错</li>
+<li><code>applymap()</code> 必须加类型判断，否则对数字调用 <code>strip()</code> 会报错</li>
+<li><strong>关联</strong>: <span class="wikilink">pandas-read-csv</span> · <span class="wikilink">特征编码</span> · <span class="wikilink">data-read-and-view</span></li>
+</ul></div></section><section class="concept-card"><h3>特征编码</h3><div class="content"><h3>特征编码</h3>
+<ul>
+<li><strong>来源章节</strong>: 2.2.3</li>
+<li><strong>定义</strong>: 将分类变量（如性别、评价等文本）转换为数值变量，使机器学习算法能够处理</li>
+<li><strong>用法</strong>:</li>
+<pre><code>  # 选择分类特征列
+  X = df[[&#x27;Your gender&#x27;, &#x27;How important is exercise to you ?&#x27;, 
+          &#x27;How healthy do you consider yourself?&#x27;]]
+  
+  # 独热编码（One-Hot Encoding）
+  X = pd.get_dummies(X)
+  
+  # 目标变量：年龄段文本转数值
+  y = df[&#x27;Your age&#x27;].apply(lambda x: int(x.split(&#x27; &#x27;)[0]))</code></pre>
+<li><strong>核心方法</strong>:</li>
+<li><code>pd.get_dummies()</code>: 独热编码，每个类别变成一列（0/1）</li>
+<li><code>df['列'].apply(lambda x: ...)</code>: 对每行应用自定义函数</li>
+<li><code>str.split(' ')[0]</code>: 按空格切分取第一个元素</li>
+<li><strong>独热编码原理</strong>:</li>
+<pre><code>  原始数据:        编码后:
+  性别              性别_Female  性别_Male
+  Female           1           0
+  Male             0           1</code></pre>
+<li><strong>为什么要编码</strong>: 机器学习算法只能处理数值，不能直接处理 "Female"、"Male" 这样的文本</li>
+<li><strong>易错点</strong>:</li>
+<li>年龄段 "19 to 25" 需要提取数字部分（取下界 19）</li>
+<li><code>get_dummies()</code> 会自动为每个类别创建新列，原列消失</li>
+<li><strong>关联</strong>: <span class="wikilink">数据加载与清洗</span> · <span class="wikilink">数据集划分</span> · <span class="wikilink">随机森林回归</span></li>
+</ul></div></section><section class="concept-card"><h3>随机森林回归</h3><div class="content"><h3>随机森林回归</h3>
+<ul>
+<li><strong>来源章节</strong>: 2.2.3</li>
+<li><strong>定义</strong>: 构建多棵决策树并行训练，预测时取所有树的平均值（回归）或投票（分类）</li>
+<li><strong>用法</strong>:</li>
+<pre><code>  from sklearn.ensemble import RandomForestRegressor
+  
+  # 创建模型（100 棵决策树）
+  rf_model = RandomForestRegressor(n_estimators=100, random_state=42)
+  
+  # 训练模型
+  rf_model.fit(X_train, y_train)
+  
+  # 预测
+  y_pred = rf_model.predict(X_test)
+  
+  # 评估
+  train_score = rf_model.score(X_train, y_train)
+  test_score = rf_model.score(X_test, y_test)</code></pre>
+<li><strong>核心参数</strong>:</li>
+<li><code>n_estimators=100</code>: 决策树数量，越多越准但越慢（通常 100～500）</li>
+<li><code>random_state=42</code>: 随机种子，保证结果可复现</li>
+<li><strong>工作原理</strong>:</li>
+</ul>
+<p>1. 从训练数据中<strong>随机抽样</strong>（有放回抽样）</p>
+<p>2. 对每个抽样数据集构建一棵决策树</p>
+<p>3. 预测时，所有树的预测值取<strong>平均</strong>（回归）或<strong>投票</strong>（分类）</p>
+<ul>
+<li><strong>优点</strong>:</li>
+<li>准确性高，性能稳定</li>
+<li>抗过拟合能力强</li>
+<li>不易受异常值影响</li>
+<li>可以处理高维数据</li>
+<li><strong>核心方法</strong>:</li>
+<li><code>fit(X_train, y_train)</code>: 训练模型</li>
+<li><code>predict(X_test)</code>: 预测</li>
+<li><code>score(X, y)</code>: 计算 R²（决定系数）</li>
+<li><strong>与 XGBoost 对比</strong>:</li>
+<li><strong>随机森林</strong>: 并行构建独立树，速度快</li>
+<li><strong>XGBoost</strong>: 串行构建树（后树修正前树错误），更准但更慢</li>
+<li><strong>关联</strong>: <span class="wikilink">数据集划分</span> · <span class="wikilink">模型评估指标</span> · <span class="wikilink">模型持久化</span> · <span class="wikilink">XGBoost回归</span></li>
+</ul></div></section></section>
+</body>
+</html>

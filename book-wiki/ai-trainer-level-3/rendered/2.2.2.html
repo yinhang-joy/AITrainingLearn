@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>2.2.2 智慧交通中燃油效率随机森林模型开发与测试</title>
+<style>
+:root { --bg:#fff; --fg:#1a1a1a; --line:#e5e5e5; --muted:#737373; --accent:#2563eb; --chip:#f5f5f5; }
+@media (prefers-color-scheme:dark) { :root:not([data-theme="light"]) { --bg:#0a0a0a; --fg:#ededed; --line:#262626; --muted:#a3a3a3; --accent:#60a5fa; --chip:#1a1a1a; } }
+:root[data-theme="dark"] { --bg:#0a0a0a; --fg:#ededed; --line:#262626; --muted:#a3a3a3; --accent:#60a5fa; --chip:#1a1a1a; }
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:var(--bg); color:var(--fg); font-family:system-ui,-apple-system,sans-serif; line-height:1.6; padding:20px; max-width:900px; margin:0 auto; }
+h1 { font-size:24px; margin:0 0 20px; padding-bottom:10px; border-bottom:2px solid var(--line); }
+h2 { font-size:20px; margin:24px 0 12px; color:var(--accent); }
+h3 { font-size:17px; margin:16px 0 8px; }
+h4 { font-size:15px; margin:12px 0 6px; }
+h5 { font-size:14px; margin:10px 0 4px; }
+p { margin:8px 0; }
+ul { margin:8px 0 8px 24px; }
+li { margin:3px 0; }
+pre { background:var(--chip); border:1px solid var(--line); border-radius:8px; padding:12px; overflow-x:auto; margin:12px 0; }
+code { font-family:Consolas,Monaco,monospace; font-size:13px; }
+p code { background:var(--chip); padding:2px 6px; border-radius:4px; }
+table { border-collapse:collapse; margin:12px 0; font-size:14px; width:100%; }
+th, td { border:1px solid var(--line); padding:6px 12px; text-align:left; }
+th { background:var(--chip); font-weight:600; }
+blockquote { border-left:4px solid var(--accent); margin:12px 0; padding:4px 14px; color:var(--muted); background:var(--chip); }
+hr { border:none; border-top:1px solid var(--line); margin:20px 0; }
+details summary { cursor:pointer; color:var(--accent); font-weight:500; user-select:none; }
+.wikilink { color:var(--accent); }
+.concepts { margin-top:40px; padding-top:20px; border-top:2px solid var(--line); }
+.concept-card { border:1px solid var(--line); border-radius:8px; padding:16px; margin:16px 0; background:var(--chip); }
+.concept-card h3 { margin-top:0; color:#9333ea; }
+.content > *:first-child { margin-top:0; }
+.content > *:last-child { margin-bottom:0; }
+</style>
+</head>
+<body>
+<h1>2.2.2 智慧交通中燃油效率随机森林模型开发与测试</h1>
+<div class="lecture-body"><h3>2.2.2 讲义：智慧交通中燃油效率随机森林模型开发与测试</h3>
+<ul>
+<li><strong>日期</strong>: 2026-08-20</li>
+<li><strong>状态</strong>: 待讲解 → 待自测 → 待做题（ipynb）</li>
+<li><strong>数据</strong>: <code>car-mpg.csv</code>（汽车燃油效率数据集，包含排量、马力、重量等特征与MPG油耗指标）</li>
+<li><strong>考核时间</strong>: 60 分钟，机考</li>
+<li><strong>模型输出</strong>: <code>rf_model.pkl</code>（随机森林模型）、<code>test_predictions.csv</code>（测试集预测结果）</li>
+</ul>
+<hr>
+<h4>一、任务解读（拆题：中文 → 机器学习翻译表）</h4>
+<p><strong>核心思维：机器学习任务 = 数据处理 + 模型训练 + 评估保存。</strong> 每个步骤对应 sklearn 的标准流程。</p>
+<table class='md'><thead><tr>
+<th>题目里的中文</th><th>翻译成 sklearn/pandas</th>
+</tr></thead><tbody>
+<tr><td>读取汽车数据集</td><td><code>pd.read_csv(...)</code></td></tr>
+<tr><td>处理缺失值和数据类型</td><td><code>pd.to_numeric(..., errors='coerce')</code> + <code>df.dropna()</code></td></tr>
+<tr><td>特征与目标分离</td><td><code>X = df.drop('mpg', axis=1)</code> / <code>y = df['mpg']</code></td></tr>
+<tr><td>划分训练集与测试集（80/20）</td><td><code>train_test_split(X, y, test_size=0.2, ...)</code></td></tr>
+<tr><td>数据标准化</td><td><code>StandardScaler()</code></td></tr>
+<tr><td>构建模型管道</td><td><code>Pipeline([('scaler', ...), ('model', ...)])</code></td></tr>
+<tr><td>线性回归基线模型</td><td><code>LinearRegression()</code></td></tr>
+<tr><td>随机森林改进模型</td><td><code>RandomForestRegressor(n_estimators=100)</code></td></tr>
+<tr><td>模型评估（R²得分）</td><td><code>model.score(X_test, y_test)</code></td></tr>
+<tr><td>保存模型</td><td><code>pickle.dump(model, open('rf_model.pkl', 'wb'))</code></td></tr>
+</tbody></table>
+<p>三个核心任务：</p>
+<p>1. 数据预处理：清洗缺失值、类型转换、特征工程</p>
+<p>2. 模型对比：线性回归（基线）→ 随机森林（改进）</p>
+<p>3. 结果保存：模型文件 + 预测结果 + 评估报告</p>
+<hr>
+<h4>二、知识点讲解</h4>
+<h5>① 数据加载与预处理</h5>
+<pre><code>import pandas as pd
+
+# 读取数据
+df = pd.read_csv(&#x27;car-mpg.csv&#x27;)
+
+# 处理数据类型和缺失值
+df[&#x27;horsepower&#x27;] = pd.to_numeric(df[&#x27;horsepower&#x27;], errors=&#x27;coerce&#x27;)
+df = df.dropna()</code></pre>
+<p><strong>关键点</strong>：</p>
+<ul>
+<li><code>pd.to_numeric(..., errors='coerce')</code>：将无法转换的值（如 '?'）转为 NaN</li>
+<li><code>df.dropna()</code>：删除包含 NaN 的行（简单粗暴，适合小数据集）</li>
+<li>实际项目中可能需要：填充均值/中位数、插值、或保留缺失值标记</li>
+</ul>
+<p><strong>为什么要预处理</strong>：机器学习模型只接受数值类型，且不能有缺失值（大多数算法）。</p>
+<h5>② 特征工程与数据分割</h5>
+<pre><code>from sklearn.model_selection import train_test_split
+
+# 分离特征和目标
+X = df.drop(&#x27;mpg&#x27;, axis=1)  # 删除目标列，剩下的都是特征
+y = df[&#x27;mpg&#x27;]               # 目标变量：油耗（Miles Per Gallon）
+
+# 划分训练集和测试集（80% 训练，20% 测试）
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42
+)</code></pre>
+<p><strong>参数说明</strong>：</p>
+<ul>
+<li><code>test_size=0.2</code>：20% 数据作为测试集（行业标准：0.2～0.3）</li>
+<li><code>random_state=42</code>：固定随机种子，保证每次运行分割结果一致（可复现）</li>
+<li><strong>返回值顺序</strong>：训练特征、测试特征、训练标签、测试标签（X_train, X_test, y_train, y_test）</li>
+</ul>
+<p><strong>⚠️ 常见错误</strong>：</p>
+<ul>
+<li>忘记设置 <code>random_state</code>，导致每次运行结果不同</li>
+<li>分割前就对整个数据集做标准化 → <strong>数据泄露</strong>（测试集信息泄露到训练中）</li>
+</ul>
+<h5>③ Pipeline与特征标准化</h5>
+<pre><code>from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.linear_model import LinearRegression
+
+# 构建管道：先标准化，再训练
+pipeline = Pipeline([
+    (&#x27;scaler&#x27;, StandardScaler()),       # 步骤1：标准化
+    (&#x27;regressor&#x27;, LinearRegression())   # 步骤2：线性回归
+])
+
+# 训练（自动执行：标准化训练集 → 训练模型）
+pipeline.fit(X_train, y_train)
+
+# 预测（自动执行：用训练集的均值/标准差标准化测试集 → 预测）
+y_pred = pipeline.predict(X_test)</code></pre>
+<p><strong>Pipeline 的三大优势</strong>：</p>
+<p>1. <strong>防止数据泄露</strong>：<code>fit(X_train)</code> 只用训练集计算均值/标准差，<code>predict(X_test)</code> 用同样参数转换测试集</p>
+<p>2. <strong>代码简洁</strong>：一次 <code>fit()</code> 自动执行所有步骤</p>
+<p>3. <strong>便于部署</strong>：保存 pipeline 后，新数据自动执行相同预处理</p>
+<p><strong>StandardScaler 原理</strong>：</p>
+<pre><code>z = (x - mean) / std</code></pre>
+<ul>
+<li>将每个特征转换为均值=0、标准差=1 的分布</li>
+<li><strong>为什么需要</strong>：不同特征量纲不同（如重量 kg vs 排量 L），标准化让它们在同一尺度上</li>
+</ul>
+<h5>④ 线性回归建模（基线模型）</h5>
+<pre><code>from sklearn.linear_model import LinearRegression
+
+# 训练线性回归
+lr_pipeline = Pipeline([
+    (&#x27;scaler&#x27;, StandardScaler()),
+    (&#x27;regressor&#x27;, LinearRegression())
+])
+lr_pipeline.fit(X_train, y_train)
+
+# 评估模型（R²得分）
+train_score = lr_pipeline.score(X_train, y_train)
+test_score = lr_pipeline.score(X_test, y_test)
+
+print(f&quot;训练集 R²: {train_score:.4f}&quot;)
+print(f&quot;测试集 R²: {test_score:.4f}&quot;)</code></pre>
+<p><strong>线性回归公式</strong>：</p>
+<pre><code>y = w₁x₁ + w₂x₂ + ... + wₙxₙ + b</code></pre>
+<ul>
+<li>假设目标与特征是线性关系</li>
+<li>优点：简单、快速、可解释（系数 w 表示特征重要性）</li>
+<li>缺点：无法捕捉非线性关系</li>
+</ul>
+<p><strong>R²得分（决定系数）</strong>：</p>
+<ul>
+<li>范围：-∞ ~ 1（越接近 1 越好）</li>
+<li>含义：模型解释了多少目标变量的方差</li>
+<li>R² = 0.85 表示模型解释了 85% 的数据变化</li>
+</ul>
+<p><strong>⚠️ 过拟合检测</strong>：训练集 R² &gt;&gt; 测试集 R² → 过拟合（模型记住训练数据，泛化能力差）</p>
+<h5>⑤ 随机森林模型改进</h5>
+<pre><code>from sklearn.ensemble import RandomForestRegressor
+
+# 构建随机森林管道
+rf_pipeline = Pipeline([
+    (&#x27;scaler&#x27;, StandardScaler()),
+    (&#x27;regressor&#x27;, RandomForestRegressor(n_estimators=100, random_state=42))
+])
+
+# 训练
+rf_pipeline.fit(X_train, y_train)
+
+# 评估
+rf_train_score = rf_pipeline.score(X_train, y_train)
+rf_test_score = rf_pipeline.score(X_test, y_test)
+
+print(f&quot;随机森林训练集 R²: {rf_train_score:.4f}&quot;)
+print(f&quot;随机森林测试集 R²: {rf_test_score:.4f}&quot;)</code></pre>
+<p><strong>随机森林原理</strong>：</p>
+<ul>
+<li><strong>集成学习</strong>：训练 100 棵决策树（<code>n_estimators=100</code>），预测时取平均值</li>
+<li>每棵树用不同的数据子集和特征子集训练 → 减少过拟合</li>
+<li>优点：能捕捉非线性关系、特征交互、对异常值不敏感</li>
+<li>缺点：训练慢、模型大、不易解释</li>
+</ul>
+<p><strong>对比线性回归</strong>：</p>
+<table class='md'><thead><tr>
+<th>模型</th><th>训练集 R²</th><th>测试集 R²</th><th>优势</th>
+</tr></thead><tbody>
+<tr><td>线性回归</td><td>0.82</td><td>0.79</td><td>简单快速</td></tr>
+<tr><td>随机森林</td><td>0.97</td><td>0.88</td><td>更高精度</td></tr>
+</tbody></table>
+<p><strong>⚠️ 关键参数</strong>：</p>
+<ul>
+<li><code>n_estimators</code>：树的数量（100～500 常用值，越多越慢）</li>
+<li><code>max_depth</code>：树的最大深度（限制深度防止过拟合）</li>
+<li><code>random_state</code>：固定随机种子（可复现）</li>
+</ul>
+<h5>⑥ 模型持久化与结果保存</h5>
+<pre><code>import pickle
+
+# 1. 保存模型
+with open(&#x27;rf_model.pkl&#x27;, &#x27;wb&#x27;) as f:
+    pickle.dump(rf_pipeline, f)
+
+# 2. 保存预测结果
+test_predictions = pd.DataFrame({
+    &#x27;actual&#x27;: y_test,
+    &#x27;predicted&#x27;: rf_pipeline.predict(X_test)
+})
+test_predictions.to_csv(&#x27;test_predictions.csv&#x27;, index=False)
+
+# 3. 生成评估报告
+report = f&quot;&quot;&quot;
+模型评估报告
+============
+线性回归（基线）:
+  - 训练集 R²: {lr_train_score:.4f}
+  - 测试集 R²: {lr_test_score:.4f}
+
+随机森林（改进）:
+  - 训练集 R²: {rf_train_score:.4f}
+  - 测试集 R²: {rf_test_score:.4f}
+  - 改进幅度: {(rf_test_score - lr_test_score) / lr_test_score * 100:.2f}%
+&quot;&quot;&quot;
+print(report)</code></pre>
+<p><strong>为什么要持久化</strong>：</p>
+<ul>
+<li>训练耗时（尤其随机森林），保存后可直接加载使用</li>
+<li>部署到生产环境：加载模型 → 输入新数据 → 输出预测</li>
+</ul>
+<p><strong>加载已保存模型</strong>：</p>
+<pre><code>with open(&#x27;rf_model.pkl&#x27;, &#x27;rb&#x27;) as f:
+    loaded_model = pickle.load(f)
+
+# 直接预测新数据
+new_predictions = loaded_model.predict(new_data)</code></pre>
+<p><strong>⚠️ pickle 安全提示</strong>：只加载可信来源的 .pkl 文件（pickle 可执行任意代码）</p>
+<hr>
+<h4>三、完整解题流程演示</h4>
+<pre><code>import pandas as pd
+import pickle
+from sklearn.model_selection import train_test_split
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.linear_model import LinearRegression
+from sklearn.ensemble import RandomForestRegressor
+
+# 步骤1：数据加载与预处理
+df = pd.read_csv(&#x27;car-mpg.csv&#x27;)
+df[&#x27;horsepower&#x27;] = pd.to_numeric(df[&#x27;horsepower&#x27;], errors=&#x27;coerce&#x27;)
+df = df.dropna()
+
+# 步骤2：特征工程
+X = df.drop(&#x27;mpg&#x27;, axis=1)
+y = df[&#x27;mpg&#x27;]
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42
+)
+
+# 步骤3：线性回归基线
+lr_pipeline = Pipeline([
+    (&#x27;scaler&#x27;, StandardScaler()),
+    (&#x27;regressor&#x27;, LinearRegression())
+])
+lr_pipeline.fit(X_train, y_train)
+lr_test_score = lr_pipeline.score(X_test, y_test)
+print(f&quot;线性回归测试集 R²: {lr_test_score:.4f}&quot;)
+
+# 步骤4：随机森林改进
+rf_pipeline = Pipeline([
+    (&#x27;scaler&#x27;, StandardScaler()),
+    (&#x27;regressor&#x27;, RandomForestRegressor(n_estimators=100, random_state=42))
+])
+rf_pipeline.fit(X_train, y_train)
+rf_test_score = rf_pipeline.score(X_test, y_test)
+print(f&quot;随机森林测试集 R²: {rf_test_score:.4f}&quot;)
+
+# 步骤5：保存结果
+with open(&#x27;rf_model.pkl&#x27;, &#x27;wb&#x27;) as f:
+    pickle.dump(rf_pipeline, f)
+
+test_predictions = pd.DataFrame({
+    &#x27;actual&#x27;: y_test.values,
+    &#x27;predicted&#x27;: rf_pipeline.predict(X_test)
+})
+test_predictions.to_csv(&#x27;test_predictions.csv&#x27;, index=False)</code></pre>
+<p><strong>预期输出</strong>：</p>
+<pre><code>线性回归测试集 R²: 0.7912
+随机森林测试集 R²: 0.8847</code></pre>
+<hr>
+<h4>四、考试注意事项（卷面要求）</h4>
+<ul>
+<li>60 分钟限时；ipynb <strong>只填空，勿修改其他代码</strong></li>
+<li>关键填空点：</li>
+<li><code>pd.to_numeric</code> 的 <code>errors='coerce'</code> 参数（3分）</li>
+<li><code>train_test_split</code> 的 <code>test_size=0.2</code>（3分）</li>
+<li><code>Pipeline</code> 的步骤列表（5分）</li>
+<li><code>RandomForestRegressor</code> 的 <code>n_estimators=100</code>（4分）</li>
+<li><code>pickle.dump</code> 的文件模式 <code>'wb'</code>（3分）</li>
+<li>文件输出：<code>rf_model.pkl</code>、<code>test_predictions.csv</code></li>
+<li>运行后 ipynb 另存为 HTML 上传</li>
+<li>考生文件夹：桌面「准考证号+身份证号后六位」</li>
+</ul>
+<hr>
+<h4>五、自测题（先自测，再对答案）</h4>
+<p>1. 为什么要使用 <code>Pipeline</code> 而不是手动先标准化再训练？</p>
+<p>2. <code>train_test_split</code> 为什么要设置 <code>random_state</code>？如果不设置会怎样？</p>
+<p>3. 随机森林的 <code>n_estimators=100</code> 表示什么？增加到 500 会有什么影响？</p>
+<p>4. 如果训练集 R²=0.99、测试集 R²=0.65，说明什么问题？怎么解决？</p>
+<p>5. <code>pd.to_numeric(..., errors='coerce')</code> 的 <code>coerce</code> 做了什么？如果改为 <code>errors='raise'</code> 会怎样？</p>
+<details>
+<summary>参考答案（先自测再看）</summary>
+<p>1. <strong>Pipeline 防止数据泄露</strong>：手动标准化容易犯错（如用整个数据集的均值/标准差），Pipeline 保证只用训练集的统计量转换测试集；且代码简洁、便于部署。</p>
+<p>2. <strong><code>random_state</code> 保证可复现</strong>：固定随机种子后，每次运行分割结果一致。不设置则每次运行训练集/测试集不同，导致模型评估结果无法对比。</p>
+<p>3. <strong><code>n_estimators=100</code> 表示 100 棵树</strong>：随机森林训练 100 棵决策树，预测时取平均。增加到 500 会提高精度（但边际收益递减），训练时间增加 5 倍，模型文件变大。</p>
+<p>4. <strong>严重过拟合</strong>：模型在训练集上表现完美（0.99），但测试集差（0.65），说明记住了训练数据的噪声。解决方法：</p>
+<ul>
+<li>减少模型复杂度（降低 <code>max_depth</code>、增加 <code>min_samples_split</code>）</li>
+<li>增加训练数据</li>
+<li>使用正则化（如 L1/L2）</li>
+<li>集成更多树但限制每棵树的深度</li>
+</ul>
+<p>5. <strong><code>coerce</code> 将错误值转为 NaN</strong>：遇到无法转换的值（如 '?'、'N/A'）时，转为 NaN 而不报错。<code>errors='raise'</code> 会直接抛异常中断程序（适合严格场景）；<code>errors='ignore'</code> 保持原值不变（不推荐）。</p>
+</details>
+<hr>
+<h4>六、关联概念（已入知识库）</h4>
+<ul>
+<li><span class="wikilink">concepts/数据加载与预处理</span> · <span class="wikilink">concepts/特征工程与数据分割</span> · <span class="wikilink">concepts/Pipeline与特征标准化</span> · <span class="wikilink">concepts/线性回归建模</span> · <span class="wikilink">concepts/随机森林模型改进</span> · <span class="wikilink">concepts/模型持久化与结果保存</span></li>
+</ul>
+<hr>
+<h4>七、扩展阅读</h4>
+<ul>
+<li><strong>为什么燃油效率预测很重要</strong>：智慧交通系统通过预测车辆油耗，优化路线规划、减少碳排放、降低运营成本。</li>
+<li><strong>其他回归模型</strong>：梯度提升树（XGBoost/LightGBM）、支持向量回归（SVR）、神经网络（深度学习）。</li>
+<li><strong>特征工程进阶</strong>：交互特征（如 <code>weight * horsepower</code>）、多项式特征、领域知识特征（如车龄、车型类别）。</li>
+</ul></div>
+
+</body>
+</html>

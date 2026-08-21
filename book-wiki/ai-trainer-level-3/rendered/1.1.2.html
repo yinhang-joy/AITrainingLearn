@@ -309,19 +309,6 @@ df.to_csv(&#x27;cleaned.csv&#x27;, index=False)</code></pre>
 <li>❌ <code>.isin('A', 'B')</code> 语法错误（isin 只接受一个参数）</li>
 <li>✅ <code>.isin(['A', 'B'])</code> 必须用列表包裹</li>
 <li><strong>关联</strong>: <span class="wikilink">boolean-indexing</span> · <span class="wikilink">groupby-aggregation</span></li>
-</ul></div></section><section class="concept-card"><h3>to-csv</h3><div class="content"><h3>to-csv（保存 CSV）</h3>
-<ul>
-<li><strong>来源章节</strong>: 1.1.2</li>
-<li><strong>定义</strong>: 把 DataFrame 保存为 CSV 文件</li>
-<li><strong>用法</strong>:</li>
-<pre><code>  df.to_csv(&#x27;cleaned_sensor_data.csv&#x27;, index=False)</code></pre>
-<li><strong>参数</strong>:</li>
-<li>第一个参数：文件名（字符串），相对路径保存在工作目录</li>
-<li><code>index=False</code>：<strong>考试必加</strong>，不保存行号列（否则 CSV 第一列是 0,1,2...）</li>
-<li><strong>⚠️ 易错点</strong>:</li>
-<li>忘记 <code>index=False</code> 会多一列行号，导致后续读取时列数不匹配</li>
-<li>文件名要加引号（字符串）</li>
-<li><strong>关联</strong>: <span class="wikilink">pandas-read-csv</span> · <span class="wikilink">fillna-method</span></li>
 </ul></div></section></section>
 </body>
 </html>

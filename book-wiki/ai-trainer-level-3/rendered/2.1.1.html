@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>2.1.1 智慧交通中燃油效率模型的数据清洗和标注流程设计</title>
+<style>
+:root { --bg:#fff; --fg:#1a1a1a; --line:#e5e5e5; --muted:#737373; --accent:#2563eb; --chip:#f5f5f5; }
+@media (prefers-color-scheme:dark) { :root:not([data-theme="light"]) { --bg:#0a0a0a; --fg:#ededed; --line:#262626; --muted:#a3a3a3; --accent:#60a5fa; --chip:#1a1a1a; } }
+:root[data-theme="dark"] { --bg:#0a0a0a; --fg:#ededed; --line:#262626; --muted:#a3a3a3; --accent:#60a5fa; --chip:#1a1a1a; }
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:var(--bg); color:var(--fg); font-family:system-ui,-apple-system,sans-serif; line-height:1.6; padding:20px; max-width:900px; margin:0 auto; }
+h1 { font-size:24px; margin:0 0 20px; padding-bottom:10px; border-bottom:2px solid var(--line); }
+h2 { font-size:20px; margin:24px 0 12px; color:var(--accent); }
+h3 { font-size:17px; margin:16px 0 8px; }
+h4 { font-size:15px; margin:12px 0 6px; }
+h5 { font-size:14px; margin:10px 0 4px; }
+p { margin:8px 0; }
+ul { margin:8px 0 8px 24px; }
+li { margin:3px 0; }
+pre { background:var(--chip); border:1px solid var(--line); border-radius:8px; padding:12px; overflow-x:auto; margin:12px 0; }
+code { font-family:Consolas,Monaco,monospace; font-size:13px; }
+p code { background:var(--chip); padding:2px 6px; border-radius:4px; }
+table { border-collapse:collapse; margin:12px 0; font-size:14px; width:100%; }
+th, td { border:1px solid var(--line); padding:6px 12px; text-align:left; }
+th { background:var(--chip); font-weight:600; }
+blockquote { border-left:4px solid var(--accent); margin:12px 0; padding:4px 14px; color:var(--muted); background:var(--chip); }
+hr { border:none; border-top:1px solid var(--line); margin:20px 0; }
+details summary { cursor:pointer; color:var(--accent); font-weight:500; user-select:none; }
+.wikilink { color:var(--accent); }
+.concepts { margin-top:40px; padding-top:20px; border-top:2px solid var(--line); }
+.concept-card { border:1px solid var(--line); border-radius:8px; padding:16px; margin:16px 0; background:var(--chip); }
+.concept-card h3 { margin-top:0; color:#9333ea; }
+.content > *:first-child { margin-top:0; }
+.content > *:last-child { margin-bottom:0; }
+</style>
+</head>
+<body>
+<h1>2.1.1 智慧交通中燃油效率模型的数据清洗和标注流程设计</h1>
+<div class="lecture-body"><h3>2.1.1 讲义：智慧交通中燃油效率模型的数据清洗和标注流程设计</h3>
+<ul>
+<li><strong>日期</strong>: 2026-08-20</li>
+<li><strong>状态</strong>: 待学习</li>
+<li><strong>数据</strong>: <code>auto-mpg.csv</code>（398 行 × 9 列：mpg / cylinders / displacement / horsepower / weight / acceleration / model year / origin / car name）</li>
+<li><strong>考核时间</strong>: 20 分钟，机考</li>
+</ul>
+<hr>
+<h4>一、场景介绍</h4>
+<p>在智慧交通系统中，<strong>燃油效率（MPG，Miles Per Gallon）</strong>是优化路线规划和车辆调度的关键指标：</p>
+<ul>
+<li><strong>降低运营成本</strong>：高燃油效率意味着单位里程耗油更少</li>
+<li><strong>减少碳排放</strong>：更少的燃油消耗 = 更低的环境污染</li>
+<li><strong>辅助购车决策</strong>：消费者可基于预测模型评估不同车型的实际油耗</li>
+<li><strong>优化车辆设计</strong>：厂商可分析哪些特征（排量、重量、马力）影响油耗</li>
+</ul>
+<p>本任务的目标：基于历史汽车数据，<strong>清洗数据并设计标注流程</strong>，为后续的燃油效率预测模型打好基础。</p>
+<hr>
+<h4>二、任务拆解（中文 → pandas + sklearn 翻译表）</h4>
+<table class='md'><thead><tr>
+<th>任务描述</th><th>翻译成代码</th><th>知识点</th>
+</tr></thead><tbody>
+<tr><td>加载数据集并显示前5行</td><td><code>pd.read_csv(...)</code> + <code>.head()</code></td><td>数据加载与探索</td></tr>
+<tr><td>检查缺失值并删除所在行</td><td><code>.isnull().sum()</code> + <code>.dropna()</code></td><td>缺失值检测与处理</td></tr>
+<tr><td>将 horsepower 转为数值类型</td><td><code>pd.to_numeric(..., errors='coerce')</code></td><td>数据类型转换</td></tr>
+<tr><td>对数值型特征标准化</td><td><code>StandardScaler().fit_transform(...)</code></td><td>特征标准化</td></tr>
+<tr><td>选择特征列作为自变量 X</td><td><code>data[selected_features]</code></td><td>特征工程</td></tr>
+<tr><td>设置 mpg 为目标变量 y</td><td><code>data['mpg']</code></td><td>目标变量标注</td></tr>
+<tr><td>划分训练集/测试集（8:2）</td><td><code>train_test_split(..., test_size=0.2)</code></td><td>数据集划分</td></tr>
+<tr><td>保存清洗后的数据</td><td><code>.to_csv(..., index=False)</code></td><td>数据保存</td></tr>
+</tbody></table>
+<hr>
+<h4>三、数据处理流程全景图</h4>
+<pre><code>原始数据（auto-mpg.csv）
+    ↓
+① 数据加载与探索
+   - 读取 CSV → DataFrame
+   - 查看前 5 行、数据类型
+    ↓
+② 缺失值检测与处理
+   - 检查哪些列有缺失值
+   - 删除包含缺失值的行
+    ↓
+③ 数据类型转换与异常处理
+   - horsepower 列包含非数值字符（如 &#x27;170a&#x27;, &#x27;95b&#x27;）
+   - 使用 pd.to_numeric 转换，errors=&#x27;coerce&#x27; 将无效值设为 NaN
+   - 再次删除缺失值
+    ↓
+④ 特征标准化
+   - 对 displacement / horsepower / weight / acceleration 标准化
+   - 消除量纲差异（重量 3000kg vs 加速度 12s）
+    ↓
+⑤ 特征工程与目标变量设定
+   - 选择 7 个特征：cylinders / displacement / horsepower / weight / acceleration / model year / origin
+   - 设定目标变量 y = mpg
+    ↓
+⑥ 数据集划分与保存
+   - 划分训练集（80%）、测试集（20%）
+   - 保存清洗后的数据为 CSV 文件</code></pre>
+<hr>
+<h4>四、知识点详解</h4>
+<h5>① 数据加载与探索</h5>
+<pre><code>import pandas as pd
+
+# 加载数据集
+data = pd.read_csv(&#x27;auto-mpg.csv&#x27;)
+
+# 查看前 5 行
+print(data.head())
+
+# 查看数据类型
+print(data.dtypes)</code></pre>
+<p><strong>核心方法</strong>：</p>
+<ul>
+<li><code>pd.read_csv(path)</code>：读取 CSV 文件，返回 DataFrame</li>
+<li><code>.head(n)</code>：显示前 n 行（默认 5 行）</li>
+<li><code>.dtypes</code>：查看每列的数据类型（int64 / float64 / object）</li>
+</ul>
+<p><strong>为什么要先探索</strong>：</p>
+<ul>
+<li>确认列名是否正确（CSV 第一行通常是列名）</li>
+<li>发现数据类型异常（如数值列被识别为 object）</li>
+<li>初步判断数据质量（是否有明显的缺失值或异常值）</li>
+</ul>
+<hr>
+<h5>② 缺失值检测与处理</h5>
+<pre><code># 检查每列的缺失值数量
+print(data.isnull().sum())
+# 输出示例：
+# mpg             0
+# cylinders       0
+# displacement    6   ← 有 6 个缺失值
+# horsepower      0
+# weight          0
+# acceleration    1   ← 有 1 个缺失值
+# ...
+
+# 删除包含缺失值的行
+data = data.dropna()</code></pre>
+<p><strong>核心方法</strong>：</p>
+<ul>
+<li><code>.isnull()</code>：逐个单元格检查是否为 NaN，返回布尔 DataFrame</li>
+<li><code>.sum()</code>：对布尔 DataFrame 按列求和（True=1，False=0）</li>
+<li><code>.dropna()</code>：删除包含任何 NaN 的行</li>
+</ul>
+<p><strong>为什么要删除缺失值</strong>：</p>
+<ul>
+<li>很多机器学习算法不支持 NaN 输入（会报错）</li>
+<li>填充缺失值（如用均值）可能引入偏差，删除是最保险的方法</li>
+<li>本数据集缺失值较少（&lt;10 行），删除不会显著减少样本量</li>
+</ul>
+<p><strong>替代方案</strong>（本题不用，仅了解）：</p>
+<pre><code># 用列均值填充
+data[&#x27;displacement&#x27;].fillna(data[&#x27;displacement&#x27;].mean(), inplace=True)
+
+# 用中位数填充
+data[&#x27;acceleration&#x27;].fillna(data[&#x27;acceleration&#x27;].median(), inplace=True)</code></pre>
+<hr>
+<h5>③ 数据类型转换与异常处理</h5>
+<pre><code># 将 horsepower 列转为数值类型
+data[&#x27;horsepower&#x27;] = pd.to_numeric(data[&#x27;horsepower&#x27;], errors=&#x27;coerce&#x27;)
+
+# 删除转换后产生的 NaN
+data = data.dropna()</code></pre>
+<p><strong>问题背景</strong>：</p>
+<ul>
+<li>原始数据中 horsepower 列包含非数值字符（如 <code>'170a'</code>, <code>'95b'</code>, 空字符串）</li>
+<li>pandas 读取时识别为 <code>object</code> 类型（字符串），无法用于数值计算</li>
+</ul>
+<p><strong>核心方法</strong>：</p>
+<ul>
+<li><code>pd.to_numeric(series, errors='coerce')</code>：</li>
+<li>尝试将每个值转为数值</li>
+<li><code>errors='coerce'</code>：转换失败时设为 NaN（而非报错）</li>
+<li><code>errors='raise'</code>：转换失败时抛出异常（严格模式）</li>
+<li><code>errors='ignore'</code>：转换失败时保持原值（不推荐）</li>
+</ul>
+<p><strong>为什么需要 errors='coerce'</strong>：</p>
+<ul>
+<li>数据录入错误（<code>'170a'</code> 可能是手误）</li>
+<li>空字符串或特殊符号（<code>''</code>, <code>'?'</code>, <code>'N/A'</code>）</li>
+<li><code>coerce</code> 将这些异常值统一转为 NaN，后续统一删除</li>
+</ul>
+<p><strong>验证转换结果</strong>：</p>
+<pre><code># 查看转换后的数据类型
+print(data[&#x27;horsepower&#x27;].dtypes)  # 应该显示 float64
+
+# 检查是否还有异常值
+print(data[&#x27;horsepower&#x27;].isnull().sum())</code></pre>
+<hr>
+<h5>④ 特征标准化</h5>
+<pre><code>from sklearn.preprocessing import StandardScaler
+
+# 选择需要标准化的数值型特征
+numerical_features = [&#x27;displacement&#x27;, &#x27;horsepower&#x27;, &#x27;weight&#x27;, &#x27;acceleration&#x27;]
+
+# 创建标准化器
+scaler = StandardScaler()
+
+# 对选定特征进行标准化
+data[numerical_features] = scaler.fit_transform(data[numerical_features])</code></pre>
+<p><strong>为什么需要标准化</strong>：</p>
+<ul>
+<li><strong>量纲差异</strong>：weight（2000-5000 kg）vs acceleration（8-24 s）</li>
+<li>未标准化时，模型会认为 weight 更重要（因为数值更大）</li>
+<li>标准化后，所有特征的均值=0，标准差=1，在同一量纲下比较</li>
+</ul>
+<p><strong>StandardScaler 原理</strong>：</p>
+<p>$$</p>
+<p>x_{\text{标准化}} = \frac{x - \mu}{\sigma}</p>
+<p>$$</p>
+<ul>
+<li>$\mu$：该列的均值</li>
+<li>$\sigma$：该列的标准差</li>
+<li>标准化后：均值=0，标准差=1</li>
+</ul>
+<p><strong>示例</strong>：</p>
+<pre><code># 原始 weight 列：[3504, 3693, 3436, ...]
+# 标准化后：[0.62, 1.15, 0.42, ...]（均值≈0，标准差≈1）</code></pre>
+<p><strong>注意事项</strong>：</p>
+<ul>
+<li><strong>只标准化数值型连续特征</strong>（不包括类别特征如 origin）</li>
+<li><strong>不标准化目标变量 y</strong>（mpg 保持原值，方便解释预测结果）</li>
+<li><code>.fit_transform()</code> 同时学习参数（均值、标准差）并应用转换</li>
+</ul>
+<hr>
+<h5>⑤ 特征工程与目标变量设定</h5>
+<pre><code># 选择对燃油效率预测最有用的特征
+selected_features = [&#x27;cylinders&#x27;, &#x27;displacement&#x27;, &#x27;horsepower&#x27;, 
+                     &#x27;weight&#x27;, &#x27;acceleration&#x27;, &#x27;model year&#x27;, &#x27;origin&#x27;]
+
+# 自变量 X（特征矩阵）
+X = data[selected_features]
+
+# 目标变量 y（燃油效率）
+y = data[&#x27;mpg&#x27;]</code></pre>
+<p><strong>特征选择逻辑</strong>（业务驱动）：</p>
+<table class='md'><thead><tr>
+<th>特征</th><th>对 MPG 的影响</th><th>选择原因</th>
+</tr></thead><tbody>
+<tr><td>cylinders</td><td>气缸数越多 → 油耗越高</td><td>✅ 选择</td></tr>
+<tr><td>displacement</td><td>排量越大 → 油耗越高</td><td>✅ 选择</td></tr>
+<tr><td>horsepower</td><td>马力越大 → 油耗越高</td><td>✅ 选择</td></tr>
+<tr><td>weight</td><td>车重越大 → 油耗越高</td><td>✅ 选择</td></tr>
+<tr><td>acceleration</td><td>加速性能与油耗相关</td><td>✅ 选择</td></tr>
+<tr><td>model year</td><td>年份越新 → 技术越先进 → 油耗越低</td><td>✅ 选择</td></tr>
+<tr><td>origin</td><td>产地影响设计理念（美/欧/日系）</td><td>✅ 选择</td></tr>
+<tr><td>car name</td><td>车型名称（文本）</td><td>❌ 不选（需单独处理）</td></tr>
+</tbody></table>
+<p><strong>X 和 y 的关系</strong>：</p>
+<ul>
+<li><strong>X（自变量）</strong>：用于预测的输入特征（7 列）</li>
+<li><strong>y（目标变量）</strong>：需要预测的输出（1 列，mpg）</li>
+<li>机器学习模型的目标：学习 X → y 的映射关系</li>
+</ul>
+<hr>
+<h5>⑥ 数据集划分与保存</h5>
+<pre><code>from sklearn.model_selection import train_test_split
+
+# 划分训练集（80%）和测试集（20%）
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42
+)
+
+# 合并特征和目标变量到一个 DataFrame
+cleaned_data = X.copy()
+cleaned_data[&#x27;mpg&#x27;] = y
+
+# 保存清洗后的数据（不保存索引）
+cleaned_data.to_csv(&#x27;2.1.1_cleaned_data.csv&#x27;, index=False)</code></pre>
+<p><strong>核心方法</strong>：</p>
+<ul>
+<li><code>train_test_split(X, y, test_size=0.2, random_state=42)</code>：</li>
+<li><code>test_size=0.2</code>：测试集占 20%，训练集占 80%</li>
+<li><code>random_state=42</code>：固定随机种子，确保每次运行结果一致</li>
+<li>返回 4 个对象：X_train, X_test, y_train, y_test</li>
+</ul>
+<p><strong>为什么要划分数据集</strong>：</p>
+<ul>
+<li><strong>训练集</strong>：用于训练模型（学习 X → y 的规律）</li>
+<li><strong>测试集</strong>：用于评估模型（验证泛化能力，避免过拟合）</li>
+<li><strong>8:2 比例</strong>：常见经验值（小数据集可用 7:3，大数据集可用 9:1）</li>
+</ul>
+<p><strong>保存数据注意事项</strong>：</p>
+<ul>
+<li><code>index=False</code>：不保存 DataFrame 的行索引（避免多一列无用的数字）</li>
+<li>保存的是 <strong>清洗后的完整数据</strong>（包含 X 和 y），方便后续模型训练</li>
+</ul>
+<hr>
+<h4>五、完整代码演示（考试填空参考）</h4>
+<pre><code>import pandas as pd
+from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import train_test_split
+
+# ① 加载数据集并显示前五行
+data = pd.read_csv(&#x27;auto-mpg.csv&#x27;)  # 1分
+print(&quot;数据集的前五行:&quot;)
+print(data.head())  # 1分
+
+# 显示每一列的数据类型
+print(data.dtypes)
+
+# ② 检查缺失值并删除缺失值所在的行（2分）
+print(&quot;\n检查缺失值:&quot;)
+print(data.isnull().sum())  # 填3个空：data / isnull() / sum()
+data = data.dropna()
+
+# ③ 将 &#x27;horsepower&#x27; 列转换为数值类型，并处理转换中的异常值（1分）
+data[&#x27;horsepower&#x27;] = pd.to_numeric(data[&#x27;horsepower&#x27;], errors=&#x27;coerce&#x27;)
+data = data.dropna()
+
+# 显示转换后的数据类型
+print(data.horsepower.dtypes)
+
+# 检查清洗后的缺失值
+print(&quot;\n检查清洗后的缺失值:&quot;)
+print(data.isnull().sum())
+
+# ④ 对数值型数据进行标准化处理（1分）
+numerical_features = [&#x27;displacement&#x27;, &#x27;horsepower&#x27;, &#x27;weight&#x27;, &#x27;acceleration&#x27;]
+scaler = StandardScaler()
+data[numerical_features] = scaler.fit_transform(data[numerical_features])
+
+# ⑤ 选择特征、自变量和目标变量（2分）
+selected_features = [&#x27;cylinders&#x27;, &#x27;displacement&#x27;, &#x27;horsepower&#x27;, &#x27;weight&#x27;, 
+                     &#x27;acceleration&#x27;, &#x27;model year&#x27;, &#x27;origin&#x27;]
+X = data[selected_features]
+y = data[&#x27;mpg&#x27;]
+
+# ⑥ 划分数据集为训练集和测试集（训练集占8成）（1分）
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42
+)
+
+# 将特征和目标变量合并到一个数据框中
+cleaned_data = X.copy()
+cleaned_data[&#x27;mpg&#x27;] = y
+
+# ⑦ 保存清洗和处理后的数据（不存储额外的索引号）（1分）
+cleaned_data.to_csv(&#x27;2.1.1_cleaned_data.csv&#x27;, index=False)
+
+# 打印消息指示文件已保存
+print(&quot;\n清洗后的数据已保存到 2.1.1_cleaned_data.csv&quot;)</code></pre>
+<hr>
+<h4>六、数据清洗规范（答题卷参考答案）</h4>
+<h5>制定数据清洗规范（每正确回答1个规范点得1分，最高得2分）</h5>
+<p><strong>参考答案</strong>：</p>
+<p>1. <strong>缺失值处理规范</strong>：</p>
+<ul>
+<li>对所有特征列进行缺失值检测（使用 <code>.isnull().sum()</code>）</li>
+<li>删除包含任何缺失值的行（使用 <code>.dropna()</code>）</li>
+<li>验证清洗后数据无缺失值</li>
+</ul>
+<p>2. <strong>数据类型转换规范</strong>：</p>
+<ul>
+<li>识别应为数值型但被识别为 object 类型的列（如 horsepower）</li>
+<li>使用 <code>pd.to_numeric(..., errors='coerce')</code> 转换，将无效值设为 NaN</li>
+<li>转换后再次删除缺失值，确保所有数值列为 float/int 类型</li>
+</ul>
+<p>3. <strong>异常值检测规范</strong>：</p>
+<ul>
+<li>对数值型特征进行合理性检查（如 weight &gt; 0，horsepower &gt; 0）</li>
+<li>对明显不合理的数据（如 weight=0）进行删除或标记</li>
+</ul>
+<p>4. <strong>数据标准化规范</strong>：</p>
+<ul>
+<li>对量纲差异大的数值型特征（displacement / horsepower / weight / acceleration）进行标准化</li>
+<li>使用 StandardScaler 确保均值=0，标准差=1</li>
+</ul>
+<hr>
+<h5>制定数据标注规范（每正确回答1个规范点得1分，最高得3分）</h5>
+<p><strong>参考答案</strong>：</p>
+<p>1. <strong>特征选择规范</strong>：</p>
+<ul>
+<li>根据业务需求选择与燃油效率相关的特征（排除 car name 等文本特征）</li>
+<li>选择的特征应包括：cylinders / displacement / horsepower / weight / acceleration / model year / origin</li>
+<li>文档化特征选择的依据（如「排量越大，油耗越高」）</li>
+</ul>
+<p>2. <strong>目标变量标注规范</strong>：</p>
+<ul>
+<li>明确目标变量为 mpg（Miles Per Gallon，燃油效率）</li>
+<li>目标变量不进行标准化（保持原值，方便解释预测结果）</li>
+<li>分离自变量 X 和目标变量 y，确保数据结构清晰</li>
+</ul>
+<p>3. <strong>数据集划分规范</strong>：</p>
+<ul>
+<li>按 8:2 比例划分训练集和测试集</li>
+<li>使用固定随机种子（random_state=42）确保可复现性</li>
+<li>确保训练集和测试集的数据分布一致（避免数据泄露）</li>
+</ul>
+<p>4. <strong>数据保存规范</strong>：</p>
+<ul>
+<li>保存清洗后的完整数据（包含特征和目标变量）</li>
+<li>使用 <code>index=False</code> 避免保存行索引</li>
+<li>文件命名规范（如 <code>2.1.1_cleaned_data.csv</code>），便于后续引用</li>
+</ul>
+<p>5. <strong>文档化规范</strong>：</p>
+<ul>
+<li>记录数据清洗的每个步骤（删除了多少行缺失值，转换了哪些列）</li>
+<li>记录特征选择的依据和目标变量的定义</li>
+<li>记录标准化的方法和参数（StandardScaler）</li>
+</ul>
+<hr>
+<h4>七、考试注意事项</h4>
+<ul>
+<li><strong>时间限制</strong>：20 分钟，代码填空为主</li>
+<li><strong>填空位置</strong>：只在下划线处填写，勿增删改其他代码</li>
+<li><strong>文件保存</strong>：</li>
+<li><code>2.1.1.html</code>（ipynb 导出）：File → Download as → HTML</li>
+<li><code>2.1.1.docx</code>（答题卷）：手动填写数据清洗和标注规范</li>
+<li><code>2.1.1_cleaned_data.csv</code>（清洗后数据）：代码自动生成</li>
+<li><strong>考生文件夹</strong>：桌面创建「准考证号+身份证后6位」文件夹</li>
+</ul>
+<hr>
+<h4>八、易错点（考试陷阱）</h4>
+<h5>⚠️ 陷阱 1：<code>.isnull().sum()</code> 三个方法的顺序</h5>
+<pre><code># ❌ 错误（只写了 isnull，没有 sum）
+data.isnull()  # 返回布尔 DataFrame，无法直观看到数量
+
+# ✅ 正确
+data.isnull().sum()  # 返回每列缺失值数量</code></pre>
+<hr>
+<h5>⚠️ 陷阱 2：<code>pd.to_numeric</code> 的参数</h5>
+<pre><code># ❌ 错误（缺少 errors 参数，遇到异常会报错）
+data[&#x27;horsepower&#x27;] = pd.to_numeric(data[&#x27;horsepower&#x27;])
+
+# ✅ 正确
+data[&#x27;horsepower&#x27;] = pd.to_numeric(data[&#x27;horsepower&#x27;], errors=&#x27;coerce&#x27;)</code></pre>
+<hr>
+<h5>⚠️ 陷阱 3：StandardScaler 的使用</h5>
+<pre><code># ❌ 错误（只 fit 不 transform）
+scaler = StandardScaler()
+scaler.fit(data[numerical_features])  # 学习参数但未应用
+
+# ❌ 错误（直接 transform，未 fit）
+scaler = StandardScaler()
+data[numerical_features] = scaler.transform(data[numerical_features])  # 报错
+
+# ✅ 正确（fit_transform 一步到位）
+scaler = StandardScaler()
+data[numerical_features] = scaler.fit_transform(data[numerical_features])</code></pre>
+<hr>
+<h5>⚠️ 陷阱 4：特征选择的列名拼写</h5>
+<pre><code># ❌ 错误（列名拼写错误或多空格）
+selected_features = [&#x27;cylinders&#x27;, &#x27;displacement&#x27;, &#x27;horse power&#x27;, ...]  # &#x27;horse power&#x27; 应为 &#x27;horsepower&#x27;
+
+# ✅ 正确（与 CSV 列名完全一致）
+selected_features = [&#x27;cylinders&#x27;, &#x27;displacement&#x27;, &#x27;horsepower&#x27;, 
+                     &#x27;weight&#x27;, &#x27;acceleration&#x27;, &#x27;model year&#x27;, &#x27;origin&#x27;]</code></pre>
+<p><strong>检查方法</strong>：</p>
+<pre><code># 打印列名，确认拼写
+print(data.columns.tolist())</code></pre>
+<hr>
+<h5>⚠️ 陷阱 5：train_test_split 的参数</h5>
+<pre><code># ❌ 错误（参数顺序错误）
+X_train, X_test, y_train, y_test = train_test_split(0.2, X, y)
+
+# ❌ 错误（test_size=0.8，训练集变成 20%）
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.8)
+
+# ✅ 正确（X, y 在前，test_size=0.2 表示测试集 20%）
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)</code></pre>
+<hr>
+<h5>⚠️ 陷阱 6：保存 CSV 时忘记 index=False</h5>
+<pre><code># ❌ 错误（保存时会多一列索引）
+cleaned_data.to_csv(&#x27;2.1.1_cleaned_data.csv&#x27;)
+# 生成的 CSV：
+# ,cylinders,displacement,...  ← 第一列是无用的索引
+
+# ✅ 正确
+cleaned_data.to_csv(&#x27;2.1.1_cleaned_data.csv&#x27;, index=False)
+# 生成的 CSV：
+# cylinders,displacement,...  ← 无索引列</code></pre>
+<hr>
+<h4>九、自测题</h4>
+<p>1. 为什么需要两次 <code>data.dropna()</code>？第一次和第二次删除的是什么数据?</p>
+<p>2. <code>pd.to_numeric(..., errors='coerce')</code> 中 <code>coerce</code> 的作用是什么？如果不加会怎样？</p>
+<p>3. 为什么只对 4 个特征（displacement / horsepower / weight / acceleration）标准化，而不标准化 cylinders / model year / origin？</p>
+<p>4. <code>train_test_split</code> 的 <code>random_state=42</code> 有什么作用？改成 <code>random_state=100</code> 会影响模型性能吗？</p>
+<details>
+<summary>参考答案（先自测再看）</summary>
+<p>1. <strong>两次 dropna 的原因</strong>：</p>
+<ul>
+<li><strong>第一次</strong>：删除原始数据中明确标记为缺失值的行（如 displacement / acceleration 列的空值）</li>
+<li><strong>第二次</strong>：删除 <code>pd.to_numeric</code> 转换失败后产生的 NaN（如 horsepower 列的 <code>'170a'</code> 被转为 NaN）</li>
+<li>必须分两次，因为第一次 dropna 后还有潜在的异常值未清理</li>
+</ul>
+<p>2. <strong>errors='coerce' 的作用</strong>：</p>
+<ul>
+<li>将无法转为数值的字符串（如 <code>'170a'</code>, <code>'?'</code>）设为 NaN，而不是报错</li>
+<li>如果不加（默认 <code>errors='raise'</code>），遇到 <code>'170a'</code> 会抛出 <code>ValueError</code> 异常，程序终止</li>
+<li>也可用 <code>errors='ignore'</code>，但会保持原值（仍是字符串），后续计算会出错</li>
+</ul>
+<p>3. <strong>标准化的选择性</strong>：</p>
+<ul>
+<li><strong>需要标准化</strong>：displacement / horsepower / weight / acceleration（量纲差异大，如 weight 3000+ vs acceleration 10+）</li>
+<li><strong>不需要标准化</strong>：</li>
+<li><code>cylinders</code>：取值少（4/6/8），是离散特征而非连续特征</li>
+<li><code>model year</code>：取值范围小（70-82），且有时间序列含义</li>
+<li><code>origin</code>：类别特征（1=美国，2=欧洲，3=日本），标准化无意义</li>
+<li>标准化的目的是消除连续特征的量纲差异，类别/离散特征不适用</li>
+</ul>
+<p>4. <strong>random_state 的作用</strong>：</p>
+<ul>
+<li>固定随机种子，确保每次运行 <code>train_test_split</code> 划分的数据相同</li>
+<li>改成 <code>random_state=100</code>：划分结果不同，但<strong>不影响模型最终性能</strong>（样本分布仍然随机）</li>
+<li>不加 <code>random_state</code>：每次运行结果不同，无法复现实验（调试时不方便）</li>
+</ul>
+</details>
+<hr>
+<h4>十、关联概念（已入知识库）</h4>
+<ul>
+<li><span class="wikilink">concepts/pandas-read-csv</span> 数据加载</li>
+<li><span class="wikilink">concepts/isnull-sum</span> 缺失值检测</li>
+<li><span class="wikilink">concepts/dropna</span> 缺失值删除</li>
+<li><span class="wikilink">concepts/pd-to-numeric</span> 数据类型转换</li>
+<li><span class="wikilink">concepts/StandardScaler</span> 特征标准化</li>
+<li><span class="wikilink">concepts/train-test-split</span> 数据集划分</li>
+<li><span class="wikilink">concepts/to-csv</span> 数据保存</li>
+</ul></div>
+
+</body>
+</html>

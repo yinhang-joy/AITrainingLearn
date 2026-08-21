@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>2.2.5 智能步数预测模型开发与测试</title>
+<style>
+:root { --bg:#fff; --fg:#1a1a1a; --line:#e5e5e5; --muted:#737373; --accent:#2563eb; --chip:#f5f5f5; }
+@media (prefers-color-scheme:dark) { :root:not([data-theme="light"]) { --bg:#0a0a0a; --fg:#ededed; --line:#262626; --muted:#a3a3a3; --accent:#60a5fa; --chip:#1a1a1a; } }
+:root[data-theme="dark"] { --bg:#0a0a0a; --fg:#ededed; --line:#262626; --muted:#a3a3a3; --accent:#60a5fa; --chip:#1a1a1a; }
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:var(--bg); color:var(--fg); font-family:system-ui,-apple-system,sans-serif; line-height:1.6; padding:20px; max-width:900px; margin:0 auto; }
+h1 { font-size:24px; margin:0 0 20px; padding-bottom:10px; border-bottom:2px solid var(--line); }
+h2 { font-size:20px; margin:24px 0 12px; color:var(--accent); }
+h3 { font-size:17px; margin:16px 0 8px; }
+h4 { font-size:15px; margin:12px 0 6px; }
+h5 { font-size:14px; margin:10px 0 4px; }
+p { margin:8px 0; }
+ul { margin:8px 0 8px 24px; }
+li { margin:3px 0; }
+pre { background:var(--chip); border:1px solid var(--line); border-radius:8px; padding:12px; overflow-x:auto; margin:12px 0; }
+code { font-family:Consolas,Monaco,monospace; font-size:13px; }
+p code { background:var(--chip); padding:2px 6px; border-radius:4px; }
+table { border-collapse:collapse; margin:12px 0; font-size:14px; width:100%; }
+th, td { border:1px solid var(--line); padding:6px 12px; text-align:left; }
+th { background:var(--chip); font-weight:600; }
+blockquote { border-left:4px solid var(--accent); margin:12px 0; padding:4px 14px; color:var(--muted); background:var(--chip); }
+hr { border:none; border-top:1px solid var(--line); margin:20px 0; }
+details summary { cursor:pointer; color:var(--accent); font-weight:500; user-select:none; }
+.wikilink { color:var(--accent); }
+.concepts { margin-top:40px; padding-top:20px; border-top:2px solid var(--line); }
+.concept-card { border:1px solid var(--line); border-radius:8px; padding:16px; margin:16px 0; background:var(--chip); }
+.concept-card h3 { margin-top:0; color:#9333ea; }
+.content > *:first-child { margin-top:0; }
+.content > *:last-child { margin-bottom:0; }
+</style>
+</head>
+<body>
+<h1>2.2.5 智能步数预测模型开发与测试</h1>
+<div class="lecture-body"><h3>2.2.5 讲义：智能步数预测模型开发与测试</h3>
+<ul>
+<li><strong>日期</strong>: 2026-08-20</li>
+<li><strong>状态</strong>: 已讲解，待做题（ipynb）</li>
+<li><strong>数据</strong>: <code>fitness analysis.csv</code>（19 列，健康问卷调查数据）</li>
+<li><strong>考核时间</strong>: 20 分钟，机考</li>
+</ul>
+<hr>
+<h4>一、场景介绍</h4>
+<p>随着智能可穿戴设备的普及，健康管理成为日常生活的一部分。本任务模拟真实场景：基于用户的健康问卷数据（性别、运动重要性评分、健康状态自评等），训练一个<strong>决策树回归模型</strong>预测用户的每日步数（daily_steps）。</p>
+<p><strong>业务价值</strong>：</p>
+<ul>
+<li>健康 App 推荐运动目标</li>
+<li>智能手环生成个性化步数挑战</li>
+<li>健身机构设计分级训练计划</li>
+</ul>
+<p><strong>本任务覆盖的完整机器学习工程流程</strong>：</p>
+<p>1. 数据加载与探索 → 2. 特征工程 → 3. 模型训练 → 4. 模型评估 → 5. 模型持久化 → 6. 结果输出</p>
+<hr>
+<h4>二、数据处理流程（六步骤）</h4>
+<h5>流程图</h5>
+<pre><code>原始数据 CSV
+    ↓
+① 加载数据（pd.read_csv）
+    ↓
+② 特征工程（选择 X 列 + 独热编码）
+    ↓
+③ 划分训练集/测试集（80/20）
+    ↓
+④ 训练决策树模型（DecisionTreeRegressor）
+    ↓
+⑤ 模型评估（MSE / MAE / R²）
+    ↓
+⑥ 保存模型 + 结果（pickle / CSV / TXT）</code></pre>
+<h5>任务要求翻译表</h5>
+<table class='md'><thead><tr>
+<th>题目里的中文</th><th>翻译成 Python/sklearn</th>
+</tr></thead><tbody>
+<tr><td>加载数据集并显示前五行</td><td><code>pd.read_csv(...)</code> + <code>df.head()</code></td></tr>
+<tr><td>分类变量转数值变量</td><td><code>pd.get_dummies(X)</code> 独热编码</td></tr>
+<tr><td>设定 daily_steps 为目标变量</td><td><code>y = df['daily_steps']</code></td></tr>
+<tr><td>测试集占 20%</td><td><code>train_test_split(..., test_size=0.2)</code></td></tr>
+<tr><td>使用决策树模型</td><td><code>DecisionTreeRegressor(random_state=42)</code></td></tr>
+<tr><td>训练模型</td><td><code>model.fit(X_train, y_train)</code></td></tr>
+<tr><td>保存为 .pkl 文件</td><td><code>pickle.dump(model, file)</code></td></tr>
+<tr><td>计算均方误差</td><td><code>mean_squared_error(y_test, y_pred)</code></td></tr>
+<tr><td>计算平均绝对误差</td><td><code>mean_absolute_error(y_test, y_pred)</code></td></tr>
+<tr><td>计算决定系数</td><td><code>r2_score(y_test, y_pred)</code></td></tr>
+</tbody></table>
+<hr>
+<h4>三、知识点详解</h4>
+<h5>① 数据加载与探索</h5>
+<pre><code>import pandas as pd
+
+df = pd.read_csv(&#x27;fitness analysis.csv&#x27;)
+print(df.head())</code></pre>
+<p><strong><code>df.head()</code> 的作用</strong>：</p>
+<ul>
+<li>显示前 5 行数据（默认），快速了解列名、数据类型、样本格式</li>
+<li>数据探索的第一步（<strong>先看数据，再动手</strong>）</li>
+</ul>
+<p><strong>本数据集关键列</strong>：</p>
+<ul>
+<li><code>Your gender</code> —— 性别（Male / Female）</li>
+<li><code>How important is exercise to you?</code> —— 运动重要性评分（1-5）</li>
+<li><code>How healthy do you consider yourself?</code> —— 健康状态自评（Unfit / Average / Good / Very good）</li>
+<li><code>daily_steps</code> —— 每日步数（目标变量，需要预测的值）</li>
+</ul>
+<hr>
+<h5>② 特征工程（Feature Engineering）</h5>
+<pre><code># 1. 选择相关特征作为自变量（X）
+X = df[[&#x27;Your gender &#x27;, &#x27;How important is exercise to you ?&#x27;, 
+        &#x27;How healthy do you consider yourself?&#x27;]]
+
+# 2. 独热编码：将分类变量转为数值变量
+X = pd.get_dummies(X)
+
+# 3. 设置目标变量（y）
+y = df[&#x27;daily_steps&#x27;]</code></pre>
+<h6><strong>为什么需要独热编码（One-Hot Encoding）？</strong></h6>
+<p>机器学习模型只能处理数值，但原始数据中：</p>
+<ul>
+<li><code>Your gender</code> 是字符串（'Male' / 'Female'）</li>
+<li><code>How healthy do you consider yourself?</code> 是分类标签（'Good' / 'Unfit' 等）</li>
+</ul>
+<p><strong>错误做法</strong>：直接映射为 1, 2, 3, 4 → 会引入「大小关系」（模型会认为 4 &gt; 3 &gt; 2）</p>
+<p><strong>正确做法</strong>：独热编码（One-Hot Encoding）</p>
+<pre><code># 原始数据
+gender = [&#x27;Male&#x27;, &#x27;Female&#x27;, &#x27;Male&#x27;]
+
+# pd.get_dummies() 后
+#    gender_Male  gender_Female
+# 0      1            0
+# 1      0            1
+# 2      1            0</code></pre>
+<p>每个类别变成一列，1 表示该类别，0 表示非该类别。模型不再误判「类别之间有大小关系」。</p>
+<hr>
+<h5>③ 决策树回归建模</h5>
+<pre><code>from sklearn.model_selection import train_test_split
+from sklearn.tree import DecisionTreeRegressor
+
+# 1. 划分数据集（80% 训练，20% 测试）
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42
+)
+
+# 2. 创建决策树回归模型
+model = DecisionTreeRegressor(random_state=42)
+
+# 3. 训练模型
+model.fit(X_train, y_train)
+
+# 4. 进行预测
+y_pred = model.predict(X_test)</code></pre>
+<h6><strong>关键参数解析</strong></h6>
+<table class='md'><thead><tr>
+<th>参数</th><th>作用</th>
+</tr></thead><tbody>
+<tr><td><code>test_size=0.2</code></td><td>测试集占 20%，训练集占 80%</td></tr>
+<tr><td><code>random_state=42</code></td><td>固定随机种子，保证每次运行结果一致（考试必加）</td></tr>
+</tbody></table>
+<h6><strong>为什么要划分训练集/测试集？</strong></h6>
+<ul>
+<li><strong>训练集</strong>：用于模型学习规律</li>
+<li><strong>测试集</strong>：用于评估模型在<strong>未见过数据</strong>上的表现（防止过拟合）</li>
+</ul>
+<blockquote>如果用训练集数据评估，模型「背答案」得高分，实际应用时效果差。</blockquote>
+<hr>
+<h5>④ 模型评估指标（三大核心指标）</h5>
+<pre><code>from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
+
+mse = mean_squared_error(y_test, y_pred)
+mae = mean_absolute_error(y_test, y_pred)
+r2 = r2_score(y_test, y_pred)</code></pre>
+<h6><strong>指标含义对照表</strong></h6>
+<table class='md'><thead><tr>
+<th>指标</th><th>英文全称</th><th>含义</th><th>值越大/越小</th>
+</tr></thead><tbody>
+<tr><td><strong>MSE</strong></td><td>Mean Squared Error</td><td>预测误差的平方平均值</td><td>越小越好</td></tr>
+<tr><td><strong>MAE</strong></td><td>Mean Absolute Error</td><td>预测误差的绝对值平均值</td><td>越小越好</td></tr>
+<tr><td><strong>R²</strong></td><td>R-squared（决定系数）</td><td>模型解释数据变异的比例</td><td>越大越好（0-1）</td></tr>
+</tbody></table>
+<h6><strong>通俗解释</strong></h6>
+<p>假设真实步数 10000，预测步数 9500，误差 = -500</p>
+<ul>
+<li><strong>MAE</strong>：<code>|10000 - 9500| = 500</code>（直接平均误差，单位与原数据一致）</li>
+<li><strong>MSE</strong>：<code>(10000 - 9500)² = 250000</code>（惩罚大误差，放大离群点影响）</li>
+<li><strong>R²</strong>：</li>
+<li>R² = 1.0 → 完美预测</li>
+<li>R² = 0.8 → 模型解释了 80% 的变异</li>
+<li>R² = 0 → 模型预测等于随机猜</li>
+<li>R² &lt; 0 → 模型比随机猜还差</li>
+</ul>
+<h6><strong>考试答题卷填写示例</strong></h6>
+<pre><code>1、模型性能
+均方误差（MSE）：1234567.89
+平均绝对误差 (MAE)：987.65
+决定系数（R²）：0.7543
+
+2、错误分析
+- 测试集中部分样本预测偏差较大（MAE 接近 1000 步）
+- 可能原因：特征选择不足（未考虑年龄、运动频率等影响因素）
+
+3、改进建议
+- 增加更多特征（年龄区间、BMI、运动频率）
+- 尝试其他模型（随机森林、XGBoost）
+- 调整决策树深度参数（max_depth）防止过拟合</code></pre>
+<hr>
+<h5>⑤ 模型持久化（保存与加载）</h5>
+<pre><code>import pickle
+
+# 保存模型
+with open(&#x27;2.2.5_model.pkl&#x27;, &#x27;wb&#x27;) as model_file:
+    pickle.dump(model, model_file)
+
+# 加载模型（后续使用）
+with open(&#x27;2.2.5_model.pkl&#x27;, &#x27;rb&#x27;) as model_file:
+    loaded_model = pickle.load(model_file)</code></pre>
+<h6><strong>为什么要持久化？</strong></h6>
+<ul>
+<li>训练模型耗时（实际项目中可能几小时），保存后直接加载使用</li>
+<li>部署到生产环境（App / 服务器）时，不需要每次重新训练</li>
+</ul>
+<h6><strong>pickle 保存的是什么？</strong></h6>
+<ul>
+<li>整个模型对象（包括学习到的决策树结构、参数）</li>
+<li><strong>注意</strong>：<code>.pkl</code> 文件只能被相同版本的 sklearn 加载</li>
+</ul>
+<hr>
+<h5>⑥ 结果输出与报告</h5>
+<pre><code># 1. 保存预测结果到 CSV
+results = pd.DataFrame({&#x27;实际值&#x27;: y_test, &#x27;预测值&#x27;: y_pred})
+results.to_csv(&#x27;2.2.5_results.txt&#x27;, index=False, sep=&#x27;\t&#x27;)
+
+# 2. 保存评估指标到 TXT
+with open(&#x27;2.2.5_report.txt&#x27;, &#x27;w&#x27;) as f:
+    f.write(f&#x27;均方误差: {mse}\n&#x27;)
+    f.write(f&#x27;平均绝对误差: {mae}\n&#x27;)
+    f.write(f&#x27;决定系数: {r2}\n&#x27;)</code></pre>
+<h6><strong>参数说明</strong></h6>
+<table class='md'><thead><tr>
+<th>参数</th><th>作用</th>
+</tr></thead><tbody>
+<tr><td><code>index=False</code></td><td>不保存行号列（考试必加）</td></tr>
+<tr><td><code>sep='\t'</code></td><td>用 Tab 分隔（题目要求保存为 .txt）</td></tr>
+<tr><td><code>'w'</code> 模式</td><td>写入文本文件</td></tr>
+</tbody></table>
+<hr>
+<h4>四、完整代码演示（填空对应位置）</h4>
+<pre><code>import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.tree import DecisionTreeRegressor
+import pickle
+from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
+
+# ① 加载数据集
+df = pd.read_csv(&#x27;fitness analysis.csv&#x27;)  # 填空 1
+
+# ② 显示前五行数据
+print(df.head())  # 填空 2
+
+# ③ 选择相关特征进行建模
+X = df[[&#x27;Your gender &#x27;, &#x27;How important is exercise to you ?&#x27;, 
+        &#x27;How healthy do you consider yourself?&#x27;]]
+X = pd.get_dummies(X)  # 填空 3（独热编码）
+
+# ④ 设置目标变量
+y = df[&#x27;daily_steps&#x27;]  # 填空 4
+
+# ⑤ 划分训练集和测试集
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42)  # 填空 5
+
+# ⑥ 创建并训练决策树回归模型
+model = DecisionTreeRegressor(random_state=42)  # 填空 6
+model.fit(X_train, y_train)  # 填空 7
+
+# ⑦ 保存训练好的模型
+with open(&#x27;2.2.5_model.pkl&#x27;, &#x27;wb&#x27;) as model_file:
+    pickle.dump(model, model_file)  # 填空 8
+
+# ⑧ 进行预测
+y_pred = model.predict(X_test)  # 填空 9
+
+# ⑨ 保存预测结果
+results = pd.DataFrame({&#x27;实际值&#x27;: y_test, &#x27;预测值&#x27;: y_pred})
+results.to_csv(&#x27;2.2.5_results.txt&#x27;, index=False, sep=&#x27;\t&#x27;)  # 填空 10
+
+# ⑩ 保存评估指标
+with open(&#x27;2.2.5_report.txt&#x27;, &#x27;w&#x27;) as f:  # 填空 11
+    f.write(f&#x27;均方误差: {mean_squared_error(y_test, y_pred)}\n&#x27;)  # 填空 12
+    f.write(f&#x27;平均绝对误差: {mean_absolute_error(y_test, y_pred)}\n&#x27;)  # 填空 13
+    f.write(f&#x27;决定系数: {r2_score(y_test, y_pred)}\n&#x27;)  # 填空 14</code></pre>
+<hr>
+<h4>五、易错点（考试陷阱）</h4>
+<h5>⚠️ 陷阱 1：列名包含空格</h5>
+<pre><code># ❌ 错误（少了末尾空格）
+X = df[[&#x27;Your gender&#x27;, &#x27;How important is exercise to you?&#x27;]]
+
+# ✅ 正确（原始 CSV 列名带空格）
+X = df[[&#x27;Your gender &#x27;, &#x27;How important is exercise to you ?&#x27;]]</code></pre>
+<p><strong>解决方法</strong>：用 <code>df.columns</code> 查看准确列名，或用 Tab 键补全。</p>
+<hr>
+<h5>⚠️ 陷阱 2：独热编码位置错误</h5>
+<pre><code># ❌ 错误（y 也被编码了）
+X = df[[&#x27;Your gender &#x27;, ...]]
+y = df[&#x27;daily_steps&#x27;]
+X, y = pd.get_dummies(X), pd.get_dummies(y)  # y 不需要编码！
+
+# ✅ 正确
+X = pd.get_dummies(X)  # 只对特征 X 编码
+y = df[&#x27;daily_steps&#x27;]  # y 是数值，不需要编码</code></pre>
+<hr>
+<h5>⚠️ 陷阱 3：忘记 <code>random_state</code></h5>
+<pre><code># ❌ 错误（每次运行结果不同）
+train_test_split(X, y, test_size=0.2)
+
+# ✅ 正确（固定随机种子）
+train_test_split(X, y, test_size=0.2, random_state=42)</code></pre>
+<p><strong>考试影响</strong>：不加 <code>random_state</code>，每次运行评估指标不同，难以复现结果。</p>
+<hr>
+<h5>⚠️ 陷阱 4：<code>pickle.dump</code> 忘记传 <code>file</code> 参数</h5>
+<pre><code># ❌ 错误
+pickle.dump(model)  # 少了保存位置
+
+# ✅ 正确
+pickle.dump(model, model_file)  # 第二个参数是文件对象</code></pre>
+<hr>
+<h4>六、自测题</h4>
+<p>1. 为什么要用 <code>pd.get_dummies()</code> 而不是直接映射 <code>{'Male': 0, 'Female': 1}</code>？</p>
+<p>2. <code>test_size=0.2</code> 表示什么？为什么不用全部数据训练模型？</p>
+<p>3. R² = 0.85 和 R² = 0.5，哪个模型更好？如果 R² = -0.3 呢？</p>
+<p>4. <code>pickle.dump(model, file)</code> 保存的是什么？能在没有 sklearn 的环境加载吗？</p>
+<details>
+<summary>参考答案（先自测再看）</summary>
+<p>1. <strong>独热编码避免引入错误的大小关系</strong>：</p>
+<ul>
+<li>直接映射 <code>{'Male': 0, 'Female': 1}</code> 会让模型认为 Female &gt; Male（数值大小）</li>
+<li>独热编码 <code>gender_Male=[1,0]</code>、<code>gender_Female=[0,1]</code> 各自独立，无大小关系</li>
+</ul>
+<p>2. <strong>80% 训练 / 20% 测试</strong>：</p>
+<ul>
+<li>训练集：模型学习规律</li>
+<li>测试集：评估模型在<strong>未见过数据</strong>上的表现</li>
+<li>用全部数据训练 → 无法检测过拟合（模型「背答案」）</li>
+</ul>
+<p>3. <strong>R² 越大越好，但有上限 1.0</strong>：</p>
+<ul>
+<li>R² = 0.85 → 模型解释 85% 变异（好模型）</li>
+<li>R² = 0.5 → 模型解释 50% 变异（一般）</li>
+<li>R² = -0.3 → 模型比随机猜还差（失败）</li>
+</ul>
+<p>4. <strong>保存的是整个模型对象（决策树结构 + 参数）</strong>：</p>
+<ul>
+<li>需要相同版本的 sklearn 才能加载</li>
+<li>没有 sklearn 无法使用（需要安装依赖）</li>
+</ul>
+</details>
+<hr>
+<h4>七、关联概念（已入知识库）</h4>
+<ul>
+<li><span class="wikilink">concepts/数据加载与探索</span></li>
+<li><span class="wikilink">concepts/特征工程</span></li>
+<li><span class="wikilink">concepts/决策树回归建模</span></li>
+<li><span class="wikilink">concepts/模型评估指标</span></li>
+<li><span class="wikilink">concepts/模型持久化</span></li>
+<li><span class="wikilink">concepts/结果输出与报告</span></li>
+</ul></div>
+
+</body>
+</html>

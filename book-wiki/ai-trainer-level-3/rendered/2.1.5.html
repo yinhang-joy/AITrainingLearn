@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>2.1.5 健康与营养咨询数据预处理与数据规范设计</title>
+<style>
+:root { --bg:#fff; --fg:#1a1a1a; --line:#e5e5e5; --muted:#737373; --accent:#2563eb; --chip:#f5f5f5; }
+@media (prefers-color-scheme:dark) { :root:not([data-theme="light"]) { --bg:#0a0a0a; --fg:#ededed; --line:#262626; --muted:#a3a3a3; --accent:#60a5fa; --chip:#1a1a1a; } }
+:root[data-theme="dark"] { --bg:#0a0a0a; --fg:#ededed; --line:#262626; --muted:#a3a3a3; --accent:#60a5fa; --chip:#1a1a1a; }
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:var(--bg); color:var(--fg); font-family:system-ui,-apple-system,sans-serif; line-height:1.6; padding:20px; max-width:900px; margin:0 auto; }
+h1 { font-size:24px; margin:0 0 20px; padding-bottom:10px; border-bottom:2px solid var(--line); }
+h2 { font-size:20px; margin:24px 0 12px; color:var(--accent); }
+h3 { font-size:17px; margin:16px 0 8px; }
+h4 { font-size:15px; margin:12px 0 6px; }
+h5 { font-size:14px; margin:10px 0 4px; }
+p { margin:8px 0; }
+ul { margin:8px 0 8px 24px; }
+li { margin:3px 0; }
+pre { background:var(--chip); border:1px solid var(--line); border-radius:8px; padding:12px; overflow-x:auto; margin:12px 0; }
+code { font-family:Consolas,Monaco,monospace; font-size:13px; }
+p code { background:var(--chip); padding:2px 6px; border-radius:4px; }
+table { border-collapse:collapse; margin:12px 0; font-size:14px; width:100%; }
+th, td { border:1px solid var(--line); padding:6px 12px; text-align:left; }
+th { background:var(--chip); font-weight:600; }
+blockquote { border-left:4px solid var(--accent); margin:12px 0; padding:4px 14px; color:var(--muted); background:var(--chip); }
+hr { border:none; border-top:1px solid var(--line); margin:20px 0; }
+details summary { cursor:pointer; color:var(--accent); font-weight:500; user-select:none; }
+.wikilink { color:var(--accent); }
+.concepts { margin-top:40px; padding-top:20px; border-top:2px solid var(--line); }
+.concept-card { border:1px solid var(--line); border-radius:8px; padding:16px; margin:16px 0; background:var(--chip); }
+.concept-card h3 { margin-top:0; color:#9333ea; }
+.content > *:first-child { margin-top:0; }
+.content > *:last-child { margin-bottom:0; }
+</style>
+</head>
+<body>
+<h1>2.1.5 健康与营养咨询数据预处理与数据规范设计</h1>
+<div class="lecture-body"><h3>2.1.5 讲义：健康与营养咨询数据预处理与数据规范设计</h3>
+<ul>
+<li><strong>日期</strong>: 2026-08-20</li>
+<li><strong>状态</strong>: 待讲解 → 待做题（ipynb）</li>
+<li><strong>数据</strong>: <code>health_and_fitness_data.csv</code>（健康咨询问卷数据：健身频率 / 水果蔬菜摄入 / 卡路里摄入 / 健身水平等）</li>
+<li><strong>考核时间</strong>: 30 分钟，机考</li>
+</ul>
+<hr>
+<h4>一、任务解读（真实场景：健康咨询系统的数据准备）</h4>
+<p><strong>业务背景</strong>：某健康咨询平台收集了用户的健身习惯、饮食摄入、健身水平等问卷数据，需要对原始数据进行清洗、标准化、编码，最终划分训练集/测试集用于后续建模预测。</p>
+<p><strong>核心思维：数据预处理 = 从脏乱差的原始数据 → 干净可用的建模数据。</strong> 这是机器学习流程的第一步，也是最耗时的一步（占总工作量 60%）。</p>
+<table class='md'><thead><tr>
+<th>题目里的中文</th><th>翻译成 pandas/sklearn</th>
+</tr></thead><tbody>
+<tr><td>加载数据、查看结构</td><td><code>pd.read_csv(...)</code> + <code>df.info()</code></td></tr>
+<tr><td>检测缺失值</td><td><code>df.isnull().sum()</code></td></tr>
+<tr><td>删除缺失行</td><td><code>df.dropna()</code></td></tr>
+<tr><td>删除重复行</td><td><code>df.drop_duplicates()</code></td></tr>
+<tr><td>将字符串转数值</td><td><code>pd.to_numeric(..., errors='coerce')</code></td></tr>
+<tr><td>分类变量编码</td><td><code>LabelEncoder().fit_transform(...)</code></td></tr>
+<tr><td>统计分布、绘图</td><td><code>value_counts()</code> + <code>plot.pie(...)</code></td></tr>
+<tr><td>缺失值填充</td><td><code>fillna(df['列'].mode()[0])</code></td></tr>
+<tr><td>划分训练/测试集</td><td><code>train_test_split(X, y, test_size=0.2)</code></td></tr>
+<tr><td>保存清洗后数据</td><td><code>df.to_csv(..., index=False)</code></td></tr>
+</tbody></table>
+<p>五个子任务：</p>
+<p>1. 数据加载、缺失值检测、删除缺失/重复行</p>
+<p>2. 数值列类型转换（卡路里摄入、水果蔬菜摄入），异常值过滤</p>
+<p>3. 分类变量编码（健身水平：Good/Average → 0/1）</p>
+<p>4. 数据可视化（健身频率分布饼图）</p>
+<p>5. 缺失值填充 + 训练/测试集划分 + 数据导出</p>
+<hr>
+<h4>二、知识点讲解</h4>
+<h5>① 数据清洗基础流程</h5>
+<pre><code># 1. 加载数据
+df = pd.read_csv(&#x27;health_and_fitness_data.csv&#x27;)
+
+# 2. 查看数据结构
+df.info()         # 列名 / 类型 / 缺失值统计
+df.head()         # 前 5 行数据
+
+# 3. 检测缺失值
+df.isnull().sum()  # 每列缺失数量
+
+# 4. 删除缺失值行
+df = df.dropna()   # 删除任何列有缺失的行
+# 或：df = df.dropna(subset=[&#x27;列名&#x27;])  指定列有缺失才删
+
+# 5. 删除重复行
+df = df.drop_duplicates()
+# 或：先检测 df.duplicated().sum()  再删除</code></pre>
+<p><strong>⚠️ 注意</strong>：<code>dropna()</code> 和 <code>drop_duplicates()</code> 默认返回新 DataFrame，必须 <code>df = df.dropna()</code> 才能保存结果。</p>
+<h5>② 数据类型转换与异常值处理</h5>
+<pre><code># 问题：某些数值列被当成字符串（如 &#x27;1200 kcal&#x27; 无法计算）
+df[&#x27;Calories_Intake&#x27;] = pd.to_numeric(df[&#x27;Calories_Intake&#x27;], errors=&#x27;coerce&#x27;)</code></pre>
+<p><strong>参数解析</strong>：</p>
+<ul>
+<li><code>pd.to_numeric(列, errors='coerce')</code>：强制转为数值类型</li>
+<li><code>errors='coerce'</code>：无法转换的值 → <code>NaN</code>（如 '无效' → NaN）</li>
+<li><code>errors='ignore'</code>：转换失败保持原样（不推荐）</li>
+</ul>
+<p><strong>异常值过滤</strong>（转换后可能产生新缺失）：</p>
+<pre><code>df = df.dropna(subset=[&#x27;Calories_Intake&#x27;])  # 删除卡路里转换失败的行
+# 或过滤异常范围：
+df = df[(df[&#x27;Calories_Intake&#x27;] &gt;= 500) &amp; (df[&#x27;Calories_Intake&#x27;] &lt;= 5000)]</code></pre>
+<h5>③ 特征编码：LabelEncoder（分类变量 → 数值）</h5>
+<pre><code>from sklearn.preprocessing import LabelEncoder
+
+le = LabelEncoder()
+df[&#x27;Fitness_Level&#x27;] = le.fit_transform(df[&#x27;Fitness_Level&#x27;])</code></pre>
+<p><strong>工作原理</strong>：</p>
+<ul>
+<li>输入：<code>['Good', 'Average', 'Good', 'Average']</code>（字符串类别）</li>
+<li>输出：<code>[0, 1, 0, 1]</code>（数值编码，按字母序：Average→0, Good→1）</li>
+<li>原因：机器学习模型只接受数值输入，不接受文本</li>
+</ul>
+<p><strong>⚠️ 使用场景</strong>：</p>
+<ul>
+<li>✅ 有序分类（如 Good &gt; Average &gt; Poor）</li>
+<li>❌ 无序分类（如地区名）更适合用 <code>pd.get_dummies()</code>（独热编码）</li>
+</ul>
+<h5>④ 数据可视化：分布统计与饼图</h5>
+<pre><code>import matplotlib.pyplot as plt
+
+# 1. 统计分类变量分布
+freq_counts = df[&#x27;Workout_Frequency&#x27;].value_counts()
+print(freq_counts)
+# 输出示例：
+# Daily      120
+# Weekly      85
+# Monthly     45
+
+# 2. 绘制饼图
+plt.figure(figsize=(6, 6))
+freq_counts.plot.pie(autopct=&#x27;%1.1f%%&#x27;, startangle=90)
+plt.title(&#x27;健身频率分布&#x27;)
+plt.ylabel(&#x27;&#x27;)  # 移除默认的 y 轴标签
+plt.show()</code></pre>
+<p><strong>参数说明</strong>：</p>
+<ul>
+<li><code>autopct='%1.1f%%'</code>：显示百分比（保留 1 位小数）</li>
+<li><code>startangle=90</code>：从 12 点钟方向开始绘制</li>
+</ul>
+<h5>⑤ 数据集划分：训练集与测试集</h5>
+<pre><code>from sklearn.model_selection import train_test_split
+
+# 1. 缺失值填充（用众数填充分类变量）
+df[&#x27;Workout_Frequency&#x27;] = df[&#x27;Workout_Frequency&#x27;].fillna(df[&#x27;Workout_Frequency&#x27;].mode()[0])
+
+# 2. 分离特征和目标
+X = df[[&#x27;Calories_Intake&#x27;, &#x27;Fruits_Veggies_Intake&#x27;, &#x27;Workout_Frequency&#x27;]]  # 特征
+y = df[&#x27;Fitness_Level&#x27;]  # 目标变量
+
+# 3. 划分训练集（80%）和测试集（20%）
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)</code></pre>
+<p><strong>参数解析</strong>：</p>
+<ul>
+<li><code>test_size=0.2</code>：20% 数据作为测试集</li>
+<li><code>random_state=42</code>：随机种子（保证每次划分结果一致，便于复现）</li>
+</ul>
+<p><strong>⚠️ 为什么要划分？</strong> 训练集用于训练模型，测试集用于评估模型效果（模拟未知数据）。</p>
+<h5>⑥ 数据导出</h5>
+<pre><code># 1. 清理列名空格（避免后续使用时出错）
+df.columns = df.columns.str.strip()
+
+# 2. 保存为 CSV
+df.to_csv(&#x27;cleaned_health_data.csv&#x27;, index=False)</code></pre>
+<p><strong>参数说明</strong>：</p>
+<ul>
+<li><code>index=False</code>：不保存行号列（默认会多一列 0, 1, 2...）</li>
+<li><code>.str.strip()</code>：去除列名首尾空格（常见问题：Excel 导出的 CSV 列名可能有隐藏空格）</li>
+</ul>
+<hr>
+<h4>三、完整数据预处理流程演示</h4>
+<pre><code>import pandas as pd
+import matplotlib.pyplot as plt
+from sklearn.preprocessing import LabelEncoder
+from sklearn.model_selection import train_test_split
+
+# ========== 1. 数据加载与初步清洗 ==========
+df = pd.read_csv(&#x27;health_and_fitness_data.csv&#x27;)
+print(&quot;原始数据形状:&quot;, df.shape)
+print(&quot;缺失值统计:\n&quot;, df.isnull().sum())
+
+df = df.dropna()  # 删除缺失行
+df = df.drop_duplicates()  # 删除重复行
+print(&quot;清洗后数据形状:&quot;, df.shape)
+
+# ========== 2. 数据类型转换 ==========
+df[&#x27;Calories_Intake&#x27;] = pd.to_numeric(df[&#x27;Calories_Intake&#x27;], errors=&#x27;coerce&#x27;)
+df[&#x27;Fruits_Veggies_Intake&#x27;] = pd.to_numeric(df[&#x27;Fruits_Veggies_Intake&#x27;], errors=&#x27;coerce&#x27;)
+df = df.dropna(subset=[&#x27;Calories_Intake&#x27;, &#x27;Fruits_Veggies_Intake&#x27;])
+
+# 过滤异常值（卡路里合理范围 500-5000）
+df = df[(df[&#x27;Calories_Intake&#x27;] &gt;= 500) &amp; (df[&#x27;Calories_Intake&#x27;] &lt;= 5000)]
+
+# ========== 3. 分类变量编码 ==========
+le = LabelEncoder()
+df[&#x27;Fitness_Level&#x27;] = le.fit_transform(df[&#x27;Fitness_Level&#x27;])
+print(&quot;编码映射:&quot;, dict(zip(le.classes_, le.transform(le.classes_))))
+# 输出：{&#x27;Average&#x27;: 0, &#x27;Good&#x27;: 1}
+
+# ========== 4. 数据可视化 ==========
+freq_counts = df[&#x27;Workout_Frequency&#x27;].value_counts()
+plt.figure(figsize=(6, 6))
+freq_counts.plot.pie(autopct=&#x27;%1.1f%%&#x27;, startangle=90)
+plt.title(&#x27;健身频率分布&#x27;)
+plt.ylabel(&#x27;&#x27;)
+plt.savefig(&#x27;workout_frequency_distribution.png&#x27;)
+
+# ========== 5. 数据集划分 ==========
+# 缺失值填充
+df[&#x27;Workout_Frequency&#x27;] = df[&#x27;Workout_Frequency&#x27;].fillna(df[&#x27;Workout_Frequency&#x27;].mode()[0])
+
+# 分离特征和目标
+X = df.drop(&#x27;Fitness_Level&#x27;, axis=1)  # 所有列除了目标变量
+y = df[&#x27;Fitness_Level&#x27;]
+
+# 划分训练/测试集
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+print(f&quot;训练集: {X_train.shape}, 测试集: {X_test.shape}&quot;)
+
+# ========== 6. 数据导出 ==========
+df.columns = df.columns.str.strip()
+df.to_csv(&#x27;cleaned_health_data.csv&#x27;, index=False)
+print(&quot;清洗后的数据已保存至 cleaned_health_data.csv&quot;)</code></pre>
+<hr>
+<h4>四、考试注意事项（卷面要求）</h4>
+<ul>
+<li>30 分钟限时；ipynb <strong>只填空，勿增删改其他代码</strong></li>
+<li>数据类型转换必须使用 <code>errors='coerce'</code>（题目会明确要求）</li>
+<li>LabelEncoder 编码后要检查映射关系（避免编码错误）</li>
+<li>饼图必须显示百分比 <code>autopct='%1.1f%%'</code></li>
+<li><code>train_test_split</code> 的 <code>random_state</code> 按题目要求设置（通常 42）</li>
+<li>导出 CSV 时必须 <code>index=False</code>（考点）</li>
+<li>运行后 ipynb 另存为 HTML 上传</li>
+</ul>
+<hr>
+<h4>五、自测题（先自测，再对答案）</h4>
+<p>1. <code>pd.to_numeric(..., errors='coerce')</code> 和 <code>errors='ignore'</code> 有什么区别？为什么推荐用 <code>coerce</code>？</p>
+<p>2. <code>LabelEncoder</code> 编码后，<code>'Good'</code> 和 <code>'Average'</code> 谁被编码为 0？规则是什么？</p>
+<p>3. 为什么要划分训练集和测试集？如果全部数据用于训练会怎样？</p>
+<p>4. <code>df.to_csv(..., index=False)</code> 不加 <code>index=False</code> 会怎样？</p>
+<details>
+<summary>参考答案（先自测再看）</summary>
+<p>1. <code>errors='coerce'</code>：转换失败 → <code>NaN</code>（可后续处理）；<code>errors='ignore'</code>：转换失败保持原值（仍是字符串，后续计算报错）。推荐 <code>coerce</code> 因为能统一处理异常值。</p>
+<p>2. <code>'Average'</code> → 0，<code>'Good'</code> → 1。规则：按<strong>字母序</strong>排序后编号（A 开头在 G 前）。</p>
+<p>3. 训练集训练模型，测试集评估泛化能力（模拟未知数据）。全用于训练会导致<strong>过拟合</strong>——模型只记住训练数据，遇到新数据效果差。</p>
+<p>4. 不加会多一列 <code>0, 1, 2...</code> 行号列，导致：① 文件变大；② 下次读取时行号被当成数据列，需手动删除。</p>
+</details>
+<hr>
+<h4>六、关联概念（已入知识库）</h4>
+<ul>
+<li><span class="wikilink">concepts/pandas数据清洗基础</span> · <span class="wikilink">concepts/数据类型转换与异常处理</span> · <span class="wikilink">concepts/特征编码-Label-Encoding</span> · <span class="wikilink">concepts/数据可视化</span> · <span class="wikilink">concepts/数据集划分</span> · <span class="wikilink">concepts/数据导出</span></li>
+</ul></div>
+<section class="concepts"><h2>知识点卡片</h2><section class="concept-card"><h3>pandas数据清洗基础</h3><div class="content"><h3>pandas数据清洗基础</h3>
+<ul>
+<li><strong>来源章节</strong>: 2.1.5</li>
+<li><strong>定义</strong>: 数据预处理的第一步，包括加载数据、结构检查、缺失值检测与删除、重复值处理</li>
+<li><strong>核心方法</strong>:</li>
+<pre><code>  df = pd.read_csv(&#x27;data.csv&#x27;)  # 加载数据
+  df.info()                      # 查看结构（列名/类型/缺失值）
+  df.isnull().sum()              # 统计每列缺失数量
+  df = df.dropna()               # 删除含缺失值的行
+  df = df.drop_duplicates()      # 删除重复行
+  df.duplicated().sum()          # 统计重复行数量</code></pre>
+<li><strong>使用场景</strong>: 机器学习建模前的数据清洗，确保数据质量</li>
+<li><strong>⚠️ 易错点</strong>:</li>
+<li><code>dropna()</code> 和 <code>drop_duplicates()</code> 默认返回新 DataFrame，必须赋值 <code>df = df.dropna()</code> 才生效</li>
+<li><code>dropna()</code> 默认删除任何列有缺失的行；用 <code>dropna(subset=['列名'])</code> 指定列</li>
+<li><strong>关联</strong>: <span class="wikilink">数据类型转换与异常处理</span> · <span class="wikilink">数据导出</span></li>
+</ul></div></section><section class="concept-card"><h3>数据可视化</h3><div class="content"><h3>数据可视化（分布统计与饼图）</h3>
+<ul>
+<li><strong>来源章节</strong>: 2.1.5</li>
+<li><strong>定义</strong>: 使用统计和图表方法展示数据分布，帮助理解数据特征</li>
+<li><strong>核心方法</strong>:</li>
+<pre><code>  import matplotlib.pyplot as plt
+  
+  # 1. 统计分类变量分布
+  counts = df[&#x27;Workout_Frequency&#x27;].value_counts()
+  # 输出: Daily 120, Weekly 85, Monthly 45
+  
+  # 2. 绘制饼图
+  plt.figure(figsize=(6, 6))
+  counts.plot.pie(autopct=&#x27;%1.1f%%&#x27;, startangle=90)
+  plt.title(&#x27;健身频率分布&#x27;)
+  plt.ylabel(&#x27;&#x27;)  # 移除默认 y 轴标签
+  plt.show()</code></pre>
+<li><strong>参数详解</strong>:</li>
+<li><code>value_counts()</code>：统计每个类别的出现次数（降序排列）</li>
+<li><code>autopct='%1.1f%%'</code>：饼图显示百分比（保留 1 位小数）</li>
+<li><code>startangle=90</code>：从 12 点钟方向开始绘制</li>
+<li><code>figsize=(宽, 高)</code>：图表尺寸（单位：英寸）</li>
+<li><strong>使用场景</strong>:</li>
+<li>分类变量分布分析（如性别、职业、等级）</li>
+<li>数据探索阶段了解数据结构</li>
+<li>报告和展示中可视化结果</li>
+<li><strong>⚠️ 易错点</strong>:</li>
+<li>饼图只适合分类变量，不适合连续数值</li>
+<li>类别过多（&gt;7）时饼图难以阅读，应改用柱状图</li>
+<li><strong>关联</strong>: <span class="wikilink">pandas数据清洗基础</span> · <span class="wikilink">数据集划分</span></li>
+</ul></div></section><section class="concept-card"><h3>数据导出</h3><div class="content"><h3>数据导出（to_csv）</h3>
+<ul>
+<li><strong>来源章节</strong>: 2.1.5</li>
+<li><strong>定义</strong>: 将清洗、处理后的 DataFrame 保存为 CSV 文件</li>
+<li><strong>核心方法</strong>:</li>
+<pre><code>  # 1. 清理列名空格（避免后续使用出错）
+  df.columns = df.columns.str.strip()
+  
+  # 2. 保存为 CSV
+  df.to_csv(&#x27;cleaned_data.csv&#x27;, index=False)</code></pre>
+<li><strong>参数详解</strong>:</li>
+<li><code>index=False</code>：不保存行号列（默认会多一列 0, 1, 2...）</li>
+<li><code>encoding='utf-8-sig'</code>：保存中文内容（避免 Excel 打开乱码）</li>
+<li><code>sep=','</code>：分隔符（默认逗号，可改为 <code>\t</code> 制表符）</li>
+<li><strong>列名清理</strong>:</li>
+<pre><code>  df.columns = df.columns.str.strip()   # 去除首尾空格
+  df.columns = df.columns.str.lower()   # 转小写
+  df.columns = df.columns.str.replace(&#x27; &#x27;, &#x27;_&#x27;)  # 空格改下划线</code></pre>
+<li><strong>使用场景</strong>:</li>
+<li>数据预处理完成后保存中间结果</li>
+<li>导出清洗后的数据供其他工具使用</li>
+<li>提交作业时保存最终结果</li>
+<li><strong>⚠️ 易错点</strong>:</li>
+<li>不加 <code>index=False</code> 会多一列行号，下次读取时被当成数据列</li>
+<li>Excel 导出的 CSV 列名可能有隐藏空格，必须 <code>str.strip()</code> 清理</li>
+<li>中文列名保存后 Excel 打开乱码 → 加 <code>encoding='utf-8-sig'</code></li>
+<li><strong>完整示例</strong>:</li>
+<pre><code>  # 保存训练集和测试集
+  train_df = pd.concat([X_train, y_train], axis=1)
+  test_df = pd.concat([X_test, y_test], axis=1)
+  
+  train_df.to_csv(&#x27;train_data.csv&#x27;, index=False, encoding=&#x27;utf-8-sig&#x27;)
+  test_df.to_csv(&#x27;test_data.csv&#x27;, index=False, encoding=&#x27;utf-8-sig&#x27;)</code></pre>
+<li><strong>关联</strong>: <span class="wikilink">pandas数据清洗基础</span> · <span class="wikilink">数据集划分</span></li>
+</ul></div></section><section class="concept-card"><h3>数据类型转换与异常处理</h3><div class="content"><h3>数据类型转换与异常处理</h3>
+<ul>
+<li><strong>来源章节</strong>: 2.1.5</li>
+<li><strong>定义</strong>: 将字符串列强制转为数值类型，处理转换错误和异常值</li>
+<li><strong>核心方法</strong>:</li>
+<pre><code>  df[&#x27;列名&#x27;] = pd.to_numeric(df[&#x27;列名&#x27;], errors=&#x27;coerce&#x27;)  # 强制转数值
+  df = df.dropna(subset=[&#x27;列名&#x27;])                         # 删除转换失败的行
+  df = df[(df[&#x27;列名&#x27;] &gt;= 下限) &amp; (df[&#x27;列名&#x27;] &lt;= 上限)]     # 过滤异常值</code></pre>
+<li><strong>参数详解</strong>:</li>
+<li><code>pd.to_numeric(列, errors='coerce')</code>：无法转换的值 → <code>NaN</code></li>
+<li><code>errors='ignore'</code>：转换失败保持原值（不推荐，后续计算会报错）</li>
+<li><code>errors='raise'</code>：转换失败直接报错（默认行为）</li>
+<li><strong>使用场景</strong>:</li>
+<li>Excel 导出的数值列被当成字符串（如 '1200 kcal'）</li>
+<li>数据中混入非数值内容（如 '无效'、'--'）</li>
+<li><strong>⚠️ 易错点</strong>: 转换后会产生新缺失值（<code>NaN</code>），必须用 <code>dropna()</code> 或 <code>fillna()</code> 处理</li>
+<li><strong>关联</strong>: <span class="wikilink">pandas数据清洗基础</span> · <span class="wikilink">数据集划分</span></li>
+</ul></div></section><section class="concept-card"><h3>特征编码-Label-Encoding</h3><div class="content"><h3>特征编码（Label Encoding）</h3>
+<ul>
+<li><strong>来源章节</strong>: 2.1.5</li>
+<li><strong>定义</strong>: 将分类变量（字符串）转换为数值编码，便于机器学习模型使用</li>
+<li><strong>核心方法</strong>:</li>
+<pre><code>  from sklearn.preprocessing import LabelEncoder
+  
+  le = LabelEncoder()
+  df[&#x27;Fitness_Level&#x27;] = le.fit_transform(df[&#x27;Fitness_Level&#x27;])
+  # 输入: [&#x27;Good&#x27;, &#x27;Average&#x27;, &#x27;Good&#x27;] → 输出: [1, 0, 1]
+  
+  # 查看编码映射
+  dict(zip(le.classes_, le.transform(le.classes_)))
+  # {&#x27;Average&#x27;: 0, &#x27;Good&#x27;: 1}</code></pre>
+<li><strong>编码规则</strong>: 按<strong>字母序</strong>排序后编号（Average &lt; Good，所以 Average→0, Good→1）</li>
+<li><strong>使用场景</strong>:</li>
+<li>✅ 有序分类变量（如 Good &gt; Average &gt; Poor）</li>
+<li>✅ 目标变量（y）编码</li>
+<li>❌ 无序分类（如地区名）应用独热编码 <code>pd.get_dummies()</code></li>
+<li><strong>⚠️ 易错点</strong>:</li>
+<li>编码顺序由字母序决定，不是出现顺序</li>
+<li>不同类别数量不影响编码值（只看字母序）</li>
+<li>新数据中出现未见过的类别会报错</li>
+<li><strong>关联</strong>: <span class="wikilink">数据类型转换与异常处理</span> · <span class="wikilink">数据集划分</span></li>
+</ul></div></section></section>
+</body>
+</html>

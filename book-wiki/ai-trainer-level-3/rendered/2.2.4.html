@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>2.2.4 低碳生活行为影响因素预测线性回归模型开发与测试</title>
+<style>
+:root { --bg:#fff; --fg:#1a1a1a; --line:#e5e5e5; --muted:#737373; --accent:#2563eb; --chip:#f5f5f5; }
+@media (prefers-color-scheme:dark) { :root:not([data-theme="light"]) { --bg:#0a0a0a; --fg:#ededed; --line:#262626; --muted:#a3a3a3; --accent:#60a5fa; --chip:#1a1a1a; } }
+:root[data-theme="dark"] { --bg:#0a0a0a; --fg:#ededed; --line:#262626; --muted:#a3a3a3; --accent:#60a5fa; --chip:#1a1a1a; }
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:var(--bg); color:var(--fg); font-family:system-ui,-apple-system,sans-serif; line-height:1.6; padding:20px; max-width:900px; margin:0 auto; }
+h1 { font-size:24px; margin:0 0 20px; padding-bottom:10px; border-bottom:2px solid var(--line); }
+h2 { font-size:20px; margin:24px 0 12px; color:var(--accent); }
+h3 { font-size:17px; margin:16px 0 8px; }
+h4 { font-size:15px; margin:12px 0 6px; }
+h5 { font-size:14px; margin:10px 0 4px; }
+p { margin:8px 0; }
+ul { margin:8px 0 8px 24px; }
+li { margin:3px 0; }
+pre { background:var(--chip); border:1px solid var(--line); border-radius:8px; padding:12px; overflow-x:auto; margin:12px 0; }
+code { font-family:Consolas,Monaco,monospace; font-size:13px; }
+p code { background:var(--chip); padding:2px 6px; border-radius:4px; }
+table { border-collapse:collapse; margin:12px 0; font-size:14px; width:100%; }
+th, td { border:1px solid var(--line); padding:6px 12px; text-align:left; }
+th { background:var(--chip); font-weight:600; }
+blockquote { border-left:4px solid var(--accent); margin:12px 0; padding:4px 14px; color:var(--muted); background:var(--chip); }
+hr { border:none; border-top:1px solid var(--line); margin:20px 0; }
+details summary { cursor:pointer; color:var(--accent); font-weight:500; user-select:none; }
+.wikilink { color:var(--accent); }
+.concepts { margin-top:40px; padding-top:20px; border-top:2px solid var(--line); }
+.concept-card { border:1px solid var(--line); border-radius:8px; padding:16px; margin:16px 0; background:var(--chip); }
+.concept-card h3 { margin-top:0; color:#9333ea; }
+.content > *:first-child { margin-top:0; }
+.content > *:last-child { margin-bottom:0; }
+</style>
+</head>
+<body>
+<h1>2.2.4 低碳生活行为影响因素预测线性回归模型开发与测试</h1>
+<div class="lecture-body"><h3>2.2.4 讲义：低碳生活行为影响因素预测线性回归模型开发与测试</h3>
+<ul>
+<li><strong>日期</strong>: 2026-08-20</li>
+<li><strong>状态</strong>: 待学习 → 待做题（ipynb）</li>
+<li><strong>数据</strong>: <code>大学生低碳生活行为的影响因素数据集.xlsx</code>（40 列，包含性别、年级、生源地、月生活费等分类变量）</li>
+<li><strong>考核时间</strong>: 20 分钟，机考</li>
+</ul>
+<hr>
+<h4>一、任务解读（从业务需求到技术实现）</h4>
+<p><strong>核心思维：这是一个完整的机器学习项目流程。</strong> 从数据加载、预处理、模型训练到评估、持久化、优化，每一步都是实际项目的必备环节。</p>
+<table class='md'><thead><tr>
+<th>题目要求</th><th>技术实现</th>
+</tr></thead><tbody>
+<tr><td>加载数据集并显示前五行</td><td><code>pd.read_excel(...)</code> + <code>data.head()</code></td></tr>
+<tr><td>删除不必要的列</td><td><code>data.drop(columns=[...])</code></td></tr>
+<tr><td>处理分类变量</td><td><code>pd.get_dummies(...)</code>（独热编码）</td></tr>
+<tr><td>定义自变量和因变量</td><td><code>X = data.drop(columns=[target])</code> + <code>y = data[target]</code></td></tr>
+<tr><td>划分训练集和测试集</td><td><code>train_test_split(X, y, test_size=0.2, random_state=42)</code></td></tr>
+<tr><td>训练线性回归模型</td><td><code>LinearRegression()</code> + <code>model.fit(X_train, y_train)</code></td></tr>
+<tr><td>保存模型</td><td><code>joblib.dump(model, 'xxx.pkl')</code></td></tr>
+<tr><td>预测并保存结果</td><td><code>model.predict(X_test)</code> + <code>results.to_csv(...)</code></td></tr>
+<tr><td>评估模型性能</td><td><code>mean_squared_error(...)</code> + <code>r2_score(...)</code></td></tr>
+<tr><td>模型优化（XGBoost）</td><td><code>XGBRegressor(...)</code> + 参数调优</td></tr>
+</tbody></table>
+<p>五个核心任务：</p>
+<p>1. <strong>数据预处理</strong>：加载数据、删除无关列、独热编码处理分类变量</p>
+<p>2. <strong>模型训练</strong>：线性回归模型拟合</p>
+<p>3. <strong>模型评估</strong>：MSE、R² 指标计算</p>
+<p>4. <strong>模型持久化</strong>：保存模型文件和预测结果</p>
+<p>5. <strong>模型优化</strong>：使用 XGBoost 改进性能</p>
+<hr>
+<h4>二、知识点讲解</h4>
+<h5>① 数据加载与预处理</h5>
+<h6>读取 Excel 文件</h6>
+<pre><code>data = pd.read_excel(&#x27;大学生低碳生活行为的影响因素数据集.xlsx&#x27;)
+print(data.head())  # 显示前五行</code></pre>
+<p><strong>注意</strong>：Excel 文件用 <code>read_excel</code>，CSV 文件用 <code>read_csv</code>。考试时根据文件扩展名选择。</p>
+<h6>删除无关列</h6>
+<pre><code>data_cleaned = data.drop(columns=[&#x27;序号&#x27;, &#x27;所用时间&#x27;])</code></pre>
+<p><strong>原理</strong>：「序号」是索引，「所用时间」是填表时长，都与预测目标无关。保留它们会引入噪声，降低模型性能。</p>
+<h6>独热编码（One-Hot Encoding）</h6>
+<pre><code>data_cleaned = pd.get_dummies(data_cleaned, drop_first=True)</code></pre>
+<p><strong>为什么需要独热编码？</strong></p>
+<ul>
+<li>原始数据中的分类变量（如性别：1=男、2=女）是数字编码，但它们<strong>不是连续的数值关系</strong></li>
+<li>如果直接输入模型，会被误解为「2 比 1 大两倍」，这在分类变量中是错误的</li>
+<li>独热编码将每个类别转换为独立的布尔列（0/1），避免引入虚假的大小关系</li>
+</ul>
+<p><strong>参数说明</strong>：</p>
+<ul>
+<li><code>drop_first=True</code>：删除第一个类别列，避免「多重共线性」（n 个类别只需 n-1 列表示）</li>
+</ul>
+<p><strong>编码前后对比</strong>：</p>
+<pre><code># 编码前：
+性别: [1, 2, 1, 2]  # 1列
+
+# 编码后（drop_first=True）：
+性别_2: [0, 1, 0, 1]  # 1列（2代表女性，1被省略）</code></pre>
+<h5>② 定义自变量和因变量</h5>
+<pre><code>target = &#x27;5.您进行过绿色低碳的相关生活方式吗?&#x27;
+X = data_cleaned.drop(columns=target)  # 自变量：除目标外的所有列
+y = data_cleaned[target]               # 因变量：目标列</code></pre>
+<p><strong>术语对照</strong>：</p>
+<ul>
+<li><strong>自变量（X）/ 特征（features）</strong>：用于预测的输入数据</li>
+<li><strong>因变量（y）/ 目标（target）/ 标签（label）</strong>：要预测的输出结果</li>
+</ul>
+<h5>③ 数据集划分</h5>
+<pre><code>X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42
+)</code></pre>
+<p><strong>参数详解</strong>：</p>
+<ul>
+<li><code>test_size=0.2</code>：20% 数据作为测试集，80% 作为训练集</li>
+<li><code>random_state=42</code>：<strong>固定随机种子</strong>，确保每次运行划分结果相同（考试必加！）</li>
+</ul>
+<p><strong>为什么要划分数据集？</strong></p>
+<ul>
+<li><strong>训练集</strong>：用于模型学习规律</li>
+<li><strong>测试集</strong>：用于评估模型泛化能力（模拟未见过的新数据）</li>
+<li>如果用全部数据训练，再用全部数据测试，会得到虚高的准确率（<strong>过拟合</strong>）</li>
+</ul>
+<h5>④ 线性回归模型训练</h5>
+<pre><code>model = LinearRegression()           # 初始化模型
+model.fit(X_train, y_train)          # 训练模型
+y_pred = model.predict(X_test)       # 预测测试集</code></pre>
+<p><strong>线性回归原理</strong>：假设因变量 y 与自变量 X 之间存在线性关系：</p>
+<pre><code>y = w₁x₁ + w₂x₂ + ... + wₙxₙ + b</code></pre>
+<ul>
+<li><code>fit()</code> 的过程：通过最小化误差，找到最优的权重 w 和偏置 b</li>
+<li><code>predict()</code> 的过程：用学到的参数计算预测值</li>
+</ul>
+<h5>⑤ 模型评估指标</h5>
+<h6>均方误差（MSE，Mean Squared Error）</h6>
+<pre><code>mse = mean_squared_error(y_test, y_pred)</code></pre>
+<p><strong>公式</strong>：MSE = (1/n) × Σ(真实值 - 预测值)²</p>
+<p><strong>意义</strong>：</p>
+<ul>
+<li>衡量预测误差的平方平均值</li>
+<li><strong>越小越好</strong>（0 = 完美预测）</li>
+<li>对离群点（极端错误）敏感</li>
+</ul>
+<h6>决定系数（R²，R-squared）</h6>
+<pre><code>r2 = r2_score(y_test, y_pred)</code></pre>
+<p><strong>公式</strong>：R² = 1 - (模型误差 / 基线误差)</p>
+<p><strong>意义</strong>：</p>
+<ul>
+<li>表示模型解释了多少比例的数据方差</li>
+<li><strong>取值范围</strong>：-∞ 到 1</li>
+<li>R² = 1：完美拟合</li>
+<li>R² = 0：模型等同于预测平均值</li>
+<li>R² &lt; 0：模型比瞎猜还差</li>
+<li><strong>一般标准</strong>：R² &gt; 0.7 认为拟合良好</li>
+</ul>
+<h5>⑥ 模型持久化</h5>
+<pre><code># 保存模型
+joblib.dump(model, &#x27;2.2.4_model.pkl&#x27;)
+
+# 保存预测结果
+results = pd.DataFrame({&#x27;实际值&#x27;: y_test, &#x27;预测值&#x27;: y_pred})
+results.to_csv(&#x27;2.2.4_results.txt&#x27;, index=False, sep=&#x27;\t&#x27;)</code></pre>
+<p><strong>为什么需要持久化？</strong></p>
+<ul>
+<li>模型训练耗时，保存后可直接加载使用，无需重复训练</li>
+<li><code>.pkl</code> 格式是 Python 的序列化格式，可保存任意 Python 对象</li>
+<li>生产环境中，训练和部署通常是分离的</li>
+</ul>
+<p><strong>参数说明</strong>：</p>
+<ul>
+<li><code>index=False</code>：不保存行索引（避免额外的序号列）</li>
+<li><code>sep='\t'</code>：使用制表符分隔（题目要求的 <code>.txt</code> 格式）</li>
+</ul>
+<h5>⑦ 模型优化：XGBoost</h5>
+<pre><code>xgb_model = XGBRegressor(
+    n_estimators=1000,      # 树的数量
+    learning_rate=0.05,     # 学习率
+    max_depth=5,            # 树的最大深度
+    subsample=0.8,          # 样本采样比例
+    colsample_bytree=0.8    # 特征采样比例
+)
+xgb_model.fit(X_train, y_train)
+y_pred_xg = xgb_model.predict(X_test)</code></pre>
+<p><strong>为什么 XGBoost 通常更好？</strong></p>
+<ul>
+<li><strong>线性回归</strong>：只能拟合线性关系（y = wx + b）</li>
+<li><strong>XGBoost</strong>：集成学习（多棵决策树投票），可以拟合复杂的非线性关系</li>
+</ul>
+<p><strong>关键超参数</strong>：</p>
+<ul>
+<li><code>n_estimators</code>：树越多，模型越复杂（过多会过拟合）</li>
+<li><code>learning_rate</code>：学习率越小，训练越稳定但越慢（通常 0.01~0.1）</li>
+<li><code>max_depth</code>：树越深，越容易过拟合（通常 3~10）</li>
+<li><code>subsample</code> / <code>colsample_bytree</code>：采样比例 &lt; 1 可防止过拟合</li>
+</ul>
+<hr>
+<h4>三、完整解题流程演示</h4>
+<pre><code>import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import mean_squared_error, r2_score
+import joblib
+from xgboost import XGBRegressor
+
+# 1. 加载数据
+data = pd.read_excel(&#x27;大学生低碳生活行为的影响因素数据集.xlsx&#x27;)
+print(data.head())
+
+# 2. 数据预处理
+data_cleaned = data.drop(columns=[&#x27;序号&#x27;, &#x27;所用时间&#x27;])
+data_cleaned = pd.get_dummies(data_cleaned, drop_first=True)
+
+# 3. 定义目标和特征
+target = &#x27;5.您进行过绿色低碳的相关生活方式吗?&#x27;
+X = data_cleaned.drop(columns=target)
+y = data_cleaned[target]
+
+# 4. 划分数据集
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42
+)
+
+# 5. 训练线性回归模型
+model = LinearRegression()
+model.fit(X_train, y_train)
+
+# 6. 保存模型
+joblib.dump(model, &#x27;2.2.4_model.pkl&#x27;)
+
+# 7. 预测并保存结果
+y_pred = model.predict(X_test)
+results = pd.DataFrame({&#x27;实际值&#x27;: y_test, &#x27;预测值&#x27;: y_pred})
+results.to_csv(&#x27;2.2.4_results.txt&#x27;, index=False, sep=&#x27;\t&#x27;)
+
+# 8. 评估模型
+mse = mean_squared_error(y_test, y_pred)
+r2 = r2_score(y_test, y_pred)
+
+# 9. 保存测试报告
+with open(&#x27;2.2.4_report.txt&#x27;, &#x27;w&#x27;) as f:
+    f.write(f&#x27;均方误差: {mse}\n&#x27;)
+    f.write(f&#x27;决定系数: {r2}\n&#x27;)
+
+# 10. XGBoost 优化
+xgb_model = XGBRegressor(
+    n_estimators=1000, 
+    learning_rate=0.05, 
+    max_depth=5,
+    subsample=0.8, 
+    colsample_bytree=0.8
+)
+xgb_model.fit(X_train, y_train)
+y_pred_xg = xgb_model.predict(X_test)
+
+# 11. 保存 XGBoost 结果
+results_xg = pd.DataFrame({&#x27;实际值&#x27;: y_test, &#x27;预测值&#x27;: y_pred_xg})
+results_xg.to_csv(&#x27;2.2.4_results_xg.txt&#x27;, index=False, sep=&#x27;\t&#x27;)
+
+# 12. XGBoost 测试报告
+mse_xg = mean_squared_error(y_test, y_pred_xg)
+r2_xg = r2_score(y_test, y_pred_xg)
+with open(&#x27;2.2.4_report_xgb.txt&#x27;, &#x27;w&#x27;) as f:
+    f.write(f&#x27;均方误差: {mse_xg}\n&#x27;)
+    f.write(f&#x27;决定系数: {r2_xg}\n&#x27;)</code></pre>
+<p><strong>预期结果对比</strong>：</p>
+<pre><code>线性回归：
+  - MSE: 约 0.15~0.25
+  - R²: 约 0.3~0.5
+
+XGBoost：
+  - MSE: 约 0.10~0.18（更低）
+  - R²: 约 0.5~0.7（更高）</code></pre>
+<hr>
+<h4>四、答题卷填写要点</h4>
+<p><strong>2.2.4.docx</strong> 需要填写：</p>
+<h5>1. 模型性能</h5>
+<pre><code>均方误差（MSE）: [填入 2.2.4_report.txt 中的值]
+决定系数（R²）: [填入 2.2.4_report.txt 中的值]</code></pre>
+<h5>2. 错误分析</h5>
+<p>参考模板：</p>
+<pre><code>根据测试结果，线性回归模型在测试集上的 R² 约为 0.4，说明模型仅解释了 40% 的数据方差，
+拟合效果一般。可能原因包括：
+1. 低碳行为受多种复杂因素影响，线性关系假设过于简单
+2. 特征之间可能存在非线性交互作用
+3. 部分特征对目标的影响可能不显著</code></pre>
+<h5>3. 改进建议</h5>
+<p>参考模板：</p>
+<pre><code>1. 使用集成学习模型（如 XGBoost、Random Forest）捕捉非线性关系
+2. 进行特征选择，剔除不相关特征
+3. 进行特征工程，构造交互特征（如「生源地 × 月生活费」）
+4. 增加数据量，提高模型泛化能力
+5. 调整超参数，使用网格搜索或贝叶斯优化</code></pre>
+<hr>
+<h4>五、考试注意事项</h4>
+<ul>
+<li>20 分钟限时，<strong>时间紧张</strong>，先把主流程跑通</li>
+<li>ipynb <strong>只填空，勿增删改其他代码</strong>（尤其是已有的变量名）</li>
+<li>文件命名严格按要求：<code>2.2.4_model.pkl</code> / <code>2.2.4_results.txt</code> / <code>2.2.4_report.txt</code> / <code>2.2.4_results_xg.txt</code> / <code>2.2.4.docx</code> / <code>2.2.4.html</code></li>
+<li><code>random_state=42</code> 必须加，否则每次运行结果不同</li>
+<li>Excel 文件用 <code>read_excel</code> 不是 <code>read_csv</code>（考点）</li>
+<li>保存 txt 时 <code>sep='\t'</code>（制表符分隔）不是逗号</li>
+<li>最后运行全部单元格，确保无报错，再导出 HTML</li>
+</ul>
+<hr>
+<h4>六、自测题（先自测，再对答案）</h4>
+<p>1. 为什么要对分类变量进行独热编码？直接用数字编码（1、2、3）有什么问题？</p>
+<p>2. <code>train_test_split</code> 的 <code>random_state=42</code> 有什么作用？不加会怎样？</p>
+<p>3. R² 的取值范围是多少？R² = 0.5 和 R² = -0.5 分别说明什么？</p>
+<p>4. 为什么 XGBoost 通常比线性回归效果更好？什么情况下线性回归可能更优？</p>
+<p>5. <code>joblib.dump</code> 和 <code>pd.DataFrame.to_csv</code> 的区别是什么？</p>
+<details>
+<summary>参考答案（先自测再看）</summary>
+<p>1. <strong>独热编码的必要性</strong>：数字编码会被模型误解为连续数值关系（如「性别=2」是「性别=1」的两倍），但分类变量的数字只是标签，不代表大小关系。独热编码将每个类别转换为独立的 0/1 列，避免引入虚假关系。</p>
+<p>2. <strong>random_state 作用</strong>：固定随机种子，确保每次运行的数据划分相同。不加则每次运行训练集/测试集不同，导致模型性能评估结果不可复现（考试扣分项）。</p>
+<p>3. <strong>R² 取值与意义</strong>：</p>
+<ul>
+<li>范围：-∞ 到 1</li>
+<li>R² = 0.5：模型解释了 50% 的数据方差，中等拟合</li>
+<li>R² = -0.5：模型比预测平均值还差（负值说明模型很糟糕）</li>
+</ul>
+<p>4. <strong>XGBoost vs 线性回归</strong>：</p>
+<ul>
+<li>XGBoost 优势：可拟合非线性关系、特征交互、自动处理缺失值</li>
+<li>线性回归优势：可解释性强、训练快、数据少时不易过拟合</li>
+<li>选择原则：数据量大、关系复杂 → XGBoost；需要解释权重、数据少 → 线性回归</li>
+</ul>
+<p>5. <strong>持久化方式对比</strong>：</p>
+<ul>
+<li><code>joblib.dump</code>：保存 Python 对象（模型），可加载后直接调用 <code>predict()</code></li>
+<li><code>to_csv</code>：保存数据表格（预测结果），供人类阅读或其他工具分析</li>
+</ul>
+</details>
+<hr>
+<h4>七、常见错误与调试</h4>
+<h5>错误 1：KeyError（找不到列名）</h5>
+<pre><code># 错误原因：列名拼写错误或独热编码后列名改变
+X = data_cleaned.drop(columns=&#x27;5.您进行过绿色低碳的相关生活方式吗?&#x27;)
+
+# 调试方法：
+print(data_cleaned.columns)  # 查看所有列名</code></pre>
+<h5>错误 2：形状不匹配</h5>
+<pre><code># 错误原因：X 和 y 长度不一致（可能删除了不同的行）
+model.fit(X_train, y_train)  # ValueError: X has 100 samples, y has 120
+
+# 调试方法：
+print(X_train.shape, y_train.shape)  # 检查形状</code></pre>
+<h5>错误 3：文件路径错误</h5>
+<pre><code># 错误原因：Jupyter 工作目录不在数据文件所在文件夹
+data = pd.read_excel(&#x27;大学生低碳生活行为的影响因素数据集.xlsx&#x27;)  # FileNotFoundError
+
+# 调试方法：
+import os
+print(os.getcwd())  # 查看当前工作目录</code></pre>
+<hr>
+<h4>八、关联概念（已入知识库）</h4>
+<ul>
+<li><span class="wikilink">concepts/数据预处理与特征工程</span> · <span class="wikilink">concepts/独热编码</span> · <span class="wikilink">concepts/数据集划分</span> · <span class="wikilink">concepts/线性回归模型</span> · <span class="wikilink">concepts/模型评估指标</span> · <span class="wikilink">concepts/模型持久化</span> · <span class="wikilink">concepts/XGBoost优化</span></li>
+</ul></div>
+
+</body>
+</html>
