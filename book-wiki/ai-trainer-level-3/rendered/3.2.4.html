@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>3.2.4 花朵智能识别系统交互流程设计</title>
+<style>
+:root { --bg:#fff; --fg:#1a1a1a; --line:#e5e5e5; --muted:#737373; --accent:#2563eb; --chip:#f5f5f5; }
+@media (prefers-color-scheme:dark) { :root:not([data-theme="light"]) { --bg:#0a0a0a; --fg:#ededed; --line:#262626; --muted:#a3a3a3; --accent:#60a5fa; --chip:#1a1a1a; } }
+:root[data-theme="dark"] { --bg:#0a0a0a; --fg:#ededed; --line:#262626; --muted:#a3a3a3; --accent:#60a5fa; --chip:#1a1a1a; }
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:var(--bg); color:var(--fg); font-family:system-ui,-apple-system,sans-serif; line-height:1.6; padding:20px; max-width:900px; margin:0 auto; }
+h1 { font-size:24px; margin:0 0 20px; padding-bottom:10px; border-bottom:2px solid var(--line); }
+h2 { font-size:20px; margin:24px 0 12px; color:var(--accent); }
+h3 { font-size:17px; margin:16px 0 8px; }
+h4 { font-size:15px; margin:12px 0 6px; }
+h5 { font-size:14px; margin:10px 0 4px; }
+p { margin:8px 0; }
+ul { margin:8px 0 8px 24px; }
+li { margin:3px 0; }
+pre { background:var(--chip); border:1px solid var(--line); border-radius:8px; padding:12px; overflow-x:auto; margin:12px 0; }
+code { font-family:Consolas,Monaco,monospace; font-size:13px; }
+p code { background:var(--chip); padding:2px 6px; border-radius:4px; }
+table { border-collapse:collapse; margin:12px 0; font-size:14px; width:100%; }
+th, td { border:1px solid var(--line); padding:6px 12px; text-align:left; }
+th { background:var(--chip); font-weight:600; }
+blockquote { border-left:4px solid var(--accent); margin:12px 0; padding:4px 14px; color:var(--muted); background:var(--chip); }
+hr { border:none; border-top:1px solid var(--line); margin:20px 0; }
+details summary { cursor:pointer; color:var(--accent); font-weight:500; user-select:none; }
+.wikilink { color:var(--accent); }
+.concepts { margin-top:40px; padding-top:20px; border-top:2px solid var(--line); }
+.concept-card { border:1px solid var(--line); border-radius:8px; padding:16px; margin:16px 0; background:var(--chip); }
+.concept-card h3 { margin-top:0; color:#9333ea; }
+.content > *:first-child { margin-top:0; }
+.content > *:last-child { margin-bottom:0; }
+</style>
+</head>
+<body>
+<h1>3.2.4 花朵智能识别系统交互流程设计</h1>
+<div class="lecture-body"><h3>3.2.4 讲义：花朵智能识别系统交互流程设计</h3>
+<ul>
+<li>日期：2026-10-22</li>
+<li>对应练习：<code>人工智能训练师三级上网素材/3.2.4/3.2.4.ipynb</code></li>
+<li>核心任务：按现有模型和标签识别测试图片，输出类别与对应概率百分比。</li>
+</ul>
+<h4>一、先按真实资源理解题目</h4>
+<table class='md'><thead><tr>
+<th>本地资源</th><th>用途</th><th>已核对的信息</th>
+</tr></thead><tbody>
+<tr><td><code>flower-detection.onnx</code></td><td>本题使用的分类模型</td><td>输入 <code>data</code>，输出 <code>resnetv17_dense0_fwd</code></td></tr>
+<tr><td><code>labels.txt</code></td><td>类别索引到名称的对应表</td><td>共 1000 行</td></tr>
+<tr><td><code>flower_test.png</code></td><td>测试图片</td><td>RGBA，224×224</td></tr>
+<tr><td><code>3.2.4.docx</code></td><td>人机交互方案答题卷</td><td>需要填写具体流程</td></tr>
+</tbody></table>
+<p>重要资源说明：本单元的模型文件与 3.2.1 的 <code>resnet.onnx</code> 二进制内容相同，两份 <code>labels.txt</code> 也完全相同。因此当前资源实际使用 1000 类通用图像分类标签，不是专用的若干类花卉标签，也不是输出花朵边界框的检测模型。</p>
+<p>应按提供的文件完成填空，不要自行编造花卉类别表、更换模型或重新编号标签。通用标签中包含 <code>daisy</code>，所以仍可以对当前雏菊图片产生相应分类输出，但不能据此宣称它覆盖所有花卉。</p>
+<p>题干一处写作 <code>flower _test.png</code>，实际文件名和本题参考均为没有额外空格的 <code>flower_test.png</code>，以资源目录为准。</p>
+<h4>二、图片如何满足模型要求</h4>
+<p>模型需要 <code>float32</code>、<code>(1, 3, 224, 224)</code>，输出为 <code>(1, 1000)</code>。</p>
+<pre><code>session = ort.InferenceSession(&#x27;flower-detection.onnx&#x27;)
+with open(&#x27;labels.txt&#x27;) as f:
+    labels = [line.strip() for line in f.readlines()]
+
+image = Image.open(&#x27;flower_test.png&#x27;).convert(&#x27;RGB&#x27;)
+processed_image = preprocess_image(image)
+processed_image = processed_image.astype(np.float32)</code></pre>
+<p>本题 png 带透明通道，是 RGBA 四通道，<code>convert('RGB')</code> 很重要，否则数组可能不是模型需要的三个通道。</p>
+<p>原题预处理流程：缩放到 256×256 → 中心裁剪 224×224 → 转数组、除以 255 → 使用指定 RGB 均值和标准差 → 将 HWC 转为 CHW → 增加批次维度。</p>
+<ul>
+<li><code>image.size</code> 的顺序是宽、高。</li>
+<li>RGB 图片数组的 <code>shape</code> 是高、宽、通道。</li>
+<li><code>np.transpose(image, (2, 0, 1))</code> 把通道移到前面。</li>
+<li>最后转 <code>float32</code> 是为了与模型声明的输入类型一致。</li>
+</ul>
+<h4>三、推理、类别索引和概率百分比</h4>
+<pre><code>input_name = session.get_inputs()[0].name
+output_name = session.get_outputs()[0].name
+output = session.run([output_name], {input_name: processed_image})[0]
+accuracy = scipy.special.softmax(output, axis=-1)
+predicted_idx = np.argmax(accuracy)
+prob_percentage = accuracy[0][predicted_idx] * 100
+predicted_label = labels[predicted_idx]</code></pre>
+<p>按顺序理解每个变量：</p>
+<table class='md'><thead><tr>
+<th>变量</th><th>含义</th>
+</tr></thead><tbody>
+<tr><td><code>output</code></td><td>模型输出的 1000 个类别分数</td></tr>
+<tr><td><code>accuracy</code></td><td>softmax 后的类别概率数组，形状仍为 <code>(1, 1000)</code></td></tr>
+<tr><td><code>predicted_idx</code></td><td>最大概率所在的类别索引</td></tr>
+<tr><td><code>prob_percentage</code></td><td>该类别的概率乘 100</td></tr>
+<tr><td><code>predicted_label</code></td><td>根据索引在标签文件中查到的名称</td></tr>
+</tbody></table>
+<p><code>np.argmax</code> 返回索引，<code>np.max</code> 才返回最大值。不能把最大概率当作标签下标。</p>
+<p>原题将变量命名为 <code>accuracy</code>，输出也写作 <code>Accuracy</code>；这里实际展示的是单张图片的预测概率，不是用有标注测试集计算出的分类准确率。保留题目变量和输出形式，在答题分析里正确解释其含义。</p>
+<h4>四、逐空对照和完整参考</h4>
+<table class='md'><thead><tr>
+<th>空号</th><th>代码行</th><th>填写内容</th>
+</tr></thead><tbody>
+<tr><td>1</td><td>23</td><td><code>ort.InferenceSession('flower-detection.onnx')</code></td></tr>
+<tr><td>2</td><td>27</td><td><code>open('labels.txt')</code></td></tr>
+<tr><td>3</td><td>37</td><td><code>Image.open('flower_test.png').convert</code></td></tr>
+<tr><td>4</td><td>41</td><td><code>preprocess_image(image)</code></td></tr>
+<tr><td>5</td><td>49</td><td><code>session.run</code></td></tr>
+<tr><td>6</td><td>53</td><td><code>scipy.special.softmax</code></td></tr>
+<tr><td>7</td><td>57</td><td><code>np.argmax(accuracy)</code></td></tr>
+<tr><td>8</td><td>61</td><td><code>accuracy[0][predicted_idx] * 100</code></td></tr>
+<tr><td>9</td><td>65</td><td><code>labels[predicted_idx]</code></td></tr>
+</tbody></table>
+<p>以下参考保留原题固定代码，仅补齐填空。在本单元目录运行。</p>
+<pre><code>import onnxruntime as ort
+import numpy as np
+import scipy.special
+from PIL import Image
+
+
+# 预处理图像
+def preprocess_image(image, resize_size=256, crop_size=224, mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]):
+    image = image.resize((resize_size, resize_size), Image.BILINEAR)
+    w, h = image.size
+    left = (w - crop_size) / 2
+    top = (h - crop_size) / 2
+    image = image.crop((left, top, left + crop_size, top + crop_size))
+    image = np.array(image).astype(np.float32)
+    image = image / 255.0
+    image = (image - mean) / std
+    image = np.transpose(image, (2, 0, 1))
+    image = image.reshape((1,) + image.shape)
+    return image
+
+
+# 加载模型  2分
+session = ort.InferenceSession(&#x27;flower-detection.onnx&#x27;)
+
+
+# 加载类别标签 2分
+with open(&#x27;labels.txt&#x27;) as f:
+    labels = [line.strip() for line in f.readlines()]
+
+
+# 获取模型输入和输出的名称
+input_name = session.get_inputs()[0].name
+output_name = session.get_outputs()[0].name
+
+
+# 加载图片  2分
+image = Image.open(&#x27;flower_test.png&#x27;).convert(&#x27;RGB&#x27;)
+
+
+# 预处理图片  2分
+processed_image = preprocess_image(image)
+
+
+# 确保输入数据是 float32 类型
+processed_image = processed_image.astype(np.float32)
+
+
+# 进行图片识别  2分
+output = session.run([output_name], {input_name: processed_image})[0]
+
+
+# 应用 softmax 函数获取识别分类后的准确率  2分
+accuracy = scipy.special.softmax(output, axis=-1)
+
+
+# 获取预测的类别索引
+predicted_idx =  np.argmax(accuracy)
+
+
+# 获取预测的准确值（转换为百分比）
+prob_percentage =  accuracy[0][predicted_idx] * 100
+
+
+# 获取预测的类别标签
+predicted_label = labels[predicted_idx]
+
+
+# 输出预测结果，包含百分比形式的概率
+print(f&quot;Predicted class: {predicted_label}, Accuracy: {prob_percentage:.2f}%&quot;)</code></pre>
+<h4>五、结果核验与交互方案</h4>
+<p>当前实际资源实测输出：</p>
+<pre><code>Predicted class: daisy, Accuracy: 96.41%</code></pre>
+<p>这个 96.41% 是当前图片对应类别的模型概率，不是整体准确率；不能仅凭一张图判断模型对所有花卉都可靠。</p>
+<p>答题卷可以按以下流程设计，并写清至少三条具体交互措施：</p>
+<ul>
+<li>选择或拍摄花朵图片，显示预览，提示尽量聚焦单朵花、减少遮挡。</li>
+<li>用户确认图片后开始识别，展示进度，加载失败时支持重试。</li>
+<li>展示原图、类别名称和概率，明确结果为模型建议。</li>
+<li>对不确定或不支持的类别允许重新拍摄、人工确认或修改，避免强行归类。</li>
+<li>经用户确认后保存结果；保留查看原图和更正记录的入口。</li>
+</ul>
+<p>当前通用分类资源的类别覆盖限制应如实说明。若要建设专门的花卉系统，需要匹配的花卉模型、标签和评估样本，这属于后续资源改进，不属于本题填空修改。</p>
+<p>提交材料：附运行结果的 <code>3.2.4.html</code>、填写后的 <code>3.2.4.docx</code>、仅截取输出结果的 <code>3.2.4-1.jpg</code>。</p>
+<p>常见问题：图片文件名多空格导致找不到文件；RGBA 未转 RGB 导致通道错误；把 <code>output</code> 当作概率；忘记乘 100；标签表与模型顺序不一致。</p>
+<h4>六、资料来源</h4>
+<p>已对照本单元的 ipynb、题目 HTML、答题卷、模型、标签和 png，并核对了其与 3.2.1 资源的对应关系。</p>
+<ul>
+<li>ONNX Runtime Python API：https://onnxruntime.ai/docs/api/python/api_summary.html</li>
+<li>SciPy softmax：https://docs.scipy.org/doc/scipy/reference/generated/scipy.special.softmax.html</li>
+<li>NumPy argmax：https://numpy.org/doc/stable/reference/generated/numpy.argmax.html</li>
+</ul></div>
+
+</body>
+</html>

@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>3.2.3 面部表情识别系统交互流程设计</title>
+<style>
+:root { --bg:#fff; --fg:#1a1a1a; --line:#e5e5e5; --muted:#737373; --accent:#2563eb; --chip:#f5f5f5; }
+@media (prefers-color-scheme:dark) { :root:not([data-theme="light"]) { --bg:#0a0a0a; --fg:#ededed; --line:#262626; --muted:#a3a3a3; --accent:#60a5fa; --chip:#1a1a1a; } }
+:root[data-theme="dark"] { --bg:#0a0a0a; --fg:#ededed; --line:#262626; --muted:#a3a3a3; --accent:#60a5fa; --chip:#1a1a1a; }
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:var(--bg); color:var(--fg); font-family:system-ui,-apple-system,sans-serif; line-height:1.6; padding:20px; max-width:900px; margin:0 auto; }
+h1 { font-size:24px; margin:0 0 20px; padding-bottom:10px; border-bottom:2px solid var(--line); }
+h2 { font-size:20px; margin:24px 0 12px; color:var(--accent); }
+h3 { font-size:17px; margin:16px 0 8px; }
+h4 { font-size:15px; margin:12px 0 6px; }
+h5 { font-size:14px; margin:10px 0 4px; }
+p { margin:8px 0; }
+ul { margin:8px 0 8px 24px; }
+li { margin:3px 0; }
+pre { background:var(--chip); border:1px solid var(--line); border-radius:8px; padding:12px; overflow-x:auto; margin:12px 0; }
+code { font-family:Consolas,Monaco,monospace; font-size:13px; }
+p code { background:var(--chip); padding:2px 6px; border-radius:4px; }
+table { border-collapse:collapse; margin:12px 0; font-size:14px; width:100%; }
+th, td { border:1px solid var(--line); padding:6px 12px; text-align:left; }
+th { background:var(--chip); font-weight:600; }
+blockquote { border-left:4px solid var(--accent); margin:12px 0; padding:4px 14px; color:var(--muted); background:var(--chip); }
+hr { border:none; border-top:1px solid var(--line); margin:20px 0; }
+details summary { cursor:pointer; color:var(--accent); font-weight:500; user-select:none; }
+.wikilink { color:var(--accent); }
+.concepts { margin-top:40px; padding-top:20px; border-top:2px solid var(--line); }
+.concept-card { border:1px solid var(--line); border-radius:8px; padding:16px; margin:16px 0; background:var(--chip); }
+.concept-card h3 { margin-top:0; color:#9333ea; }
+.content > *:first-child { margin-top:0; }
+.content > *:last-child { margin-bottom:0; }
+</style>
+</head>
+<body>
+<h1>3.2.3 面部表情识别系统交互流程设计</h1>
+<div class="lecture-body"><h3>3.2.3 讲义：面部表情识别系统交互流程设计</h3>
+<ul>
+<li>日期：2026-10-22</li>
+<li>对应练习：<code>人工智能训练师三级上网素材/3.2.3/3.2.3.ipynb</code></li>
+<li>核心任务：使用已有模型输出图片的表情类别，并设计人工可确认的交互方式。</li>
+</ul>
+<h4>一、资源和模型输入输出</h4>
+<table class='md'><thead><tr>
+<th>本地资源</th><th>用途</th><th>已核对的信息</th>
+</tr></thead><tbody>
+<tr><td><code>emotion-ferplus.onnx</code></td><td>表情分类模型</td><td>输入 <code>Input3</code>，输出 <code>Plus692_Output_0</code></td></tr>
+<tr><td><code>img_test.png</code></td><td>测试图片</td><td>RGB，193×193</td></tr>
+<tr><td><code>3.2.3.docx</code></td><td>交互方案答题卷</td><td>方案填写到指定单元格</td></tr>
+</tbody></table>
+<p>模型输入是 <code>float32</code>、<code>(1, 1, 64, 64)</code>，输出是 <code>(1, 8)</code>。本题将 RGB 图片转成灰度图，再缩放到 64×64，并增加批次和通道维度。</p>
+<p>这里使用已经训练好的 ONNX 模型进行推理，不调用 <code>fit</code>，也不计算回归模型的 MSE。</p>
+<h4>二、先识别原题中的环境兼容问题</h4>
+<p>原题预处理函数固定使用：</p>
+<pre><code>img = img.resize((64, 64), Image.ANTIALIAS)</code></pre>
+<p>Pillow 10 已移除 <code>Image.ANTIALIAS</code>，对应的新名称为 <code>Image.Resampling.LANCZOS</code>。当前练习环境 Pillow 12.3.0 没有旧名称，所以可能在进入模型预测之前报 <code>AttributeError</code>，这不是填空答案错误。</p>
+<p>在允许增加独立环境准备单元格的学习场景，可先执行下面的兼容准备，随后仍运行原题固定代码：</p>
+<pre><code>from PIL import Image
+
+if not hasattr(Image, &#x27;ANTIALIAS&#x27;):
+    Image.ANTIALIAS = Image.Resampling.LANCZOS</code></pre>
+<p>这只是给当前 Python 进程补充旧名称，不会修改 Pillow 安装文件；重启内核后需要重新准备。它不是题目中的填空答案。正式考试如不允许增加准备代码，应先确认考试环境兼容，不要将这段代码硬塞进填空或擅改原题预处理函数。</p>
+<h4>三、八种表情与字典方向</h4>
+<p>题目给出的映射方向是“名称 → 数字”：</p>
+<pre><code>emotion_table = {
+    &#x27;neutral&#x27;: 0, &#x27;happiness&#x27;: 1, &#x27;surprise&#x27;: 2, &#x27;sadness&#x27;: 3,
+    &#x27;anger&#x27;: 4, &#x27;disgust&#x27;: 5, &#x27;fear&#x27;: 6, &#x27;contempt&#x27;: 7
+}</code></pre>
+<p>对应中文可理解为中性、快乐、惊讶、悲伤、愤怒、厌恶、恐惧、轻蔑。顺序必须与题目一致，不能按自己的习惯重新排列。</p>
+<p>模型输出的 <code>predicted_label</code> 是数字，需要反过来查名称：</p>
+<pre><code>predicted_label = np.argmax(ort_outs[0])
+predicted_emotion = {value: name for name, value in emotion_table.items()}[predicted_label]</code></pre>
+<p>例如模型返回 2，反向字典会得到 <code>'surprise'</code>。直接写 <code>emotion_table[2]</code> 不行，因为原字典的键是英文名称，而不是整数。</p>
+<p>原题最后一空后面已经有 <code>[predicted_label]</code>，该空只需填反向字典表达式，不要重复填写索引。</p>
+<h4>四、推理接口和数组形状</h4>
+<pre><code>ort_session = ort.InferenceSession(&#x27;emotion-ferplus.onnx&#x27;)
+input_data = preprocess(&#x27;img_test.png&#x27;)
+ort_inputs = {ort_session.get_inputs()[0].name: input_data}
+ort_outs = ort_session.run(None, ort_inputs)</code></pre>
+<ul>
+<li><code>preprocess</code> 是原题给出的函数，传入的是文件路径。</li>
+<li>灰度数组先为 <code>(64, 64)</code>，经两次扩展成为 <code>(1, 1, 64, 64)</code>。</li>
+<li><code>run</code> 第一个参数 <code>None</code> 表示返回全部输出；第二个参数是“输入名 → 输入数组”的字典。</li>
+<li><code>ort_outs[0]</code> 是第一个输出张量；<code>np.argmax</code> 找最大分数的索引，不是概率数值。</li>
+</ul>
+<p>原题用 <code>assert</code> 检查最终输入形状。如果它报错，先检查形状处理，而不是直接删除检查。这里也没有要求额外除以 255 或使用 RGB 均值。</p>
+<h4>五、逐空对照和完整参考</h4>
+<table class='md'><thead><tr>
+<th>空号</th><th>代码行</th><th>填写内容</th>
+</tr></thead><tbody>
+<tr><td>1</td><td>21</td><td><code>'neutral': 0, 'happiness': 1, 'surprise': 2, 'sadness': 3, 'anger': 4, 'disgust': 5, 'fear': 6, 'contempt': 7</code></td></tr>
+<tr><td>2</td><td>25</td><td><code>ort.InferenceSession('emotion-ferplus.onnx')</code></td></tr>
+<tr><td>3</td><td>29</td><td><code>preprocess('img_test.png')</code></td></tr>
+<tr><td>4</td><td>37</td><td><code>ort_session.run</code></td></tr>
+<tr><td>5</td><td>37</td><td><code>ort_inputs</code></td></tr>
+<tr><td>6</td><td>41</td><td><code>np.argmax</code></td></tr>
+<tr><td>7</td><td>45</td><td><code>{value: name for name, value in emotion_table.items()}</code></td></tr>
+</tbody></table>
+<p>以下参考只补原题填空，保留了原题的 <code>Image.ANTIALIAS</code>。在新 Pillow 环境运行前，先处理上文所述兼容问题。</p>
+<pre><code># 导入必要的库
+import numpy as np
+from PIL import Image
+import onnxruntime as ort
+
+
+# 定义预处理函数，用于将图片转换为模型所需的输入格式
+def preprocess(image_path):
+    input_shape = (1, 1, 64, 64)    # 模型输入期望的形状，这里是 (N, C, H, W)，N=batch size, C=channels, H=height, W=width
+    img = Image.open(image_path).convert(&#x27;L&#x27;)    # 打开图像文件并将其转换为灰度图  1分
+    img = img.resize((64, 64), Image.ANTIALIAS)    # 调整图像大小到模型输入所需的尺寸
+    img_data = np.array(img, dtype=np.float32)    # 将PIL图像对象转换为numpy数组，并确保数据类型是float32
+    # 调整数组的形状以匹配模型输入的形状
+    img_data = np.expand_dims(img_data, axis=0)  # 添加 batch 维度
+    img_data = np.expand_dims(img_data, axis=1)  # 添加 channel 维度
+    assert img_data.shape == input_shape, f&quot;Expected shape {input_shape}, but got {img_data.shape}&quot;    # 确保最终的形状与模型输入要求的形状一致
+    return img_data    # 返回预处理后的图像数据
+
+
+# 定义情感类别与数字标签的映射表 3分
+emotion_table = {&#x27;neutral&#x27;: 0, &#x27;happiness&#x27;: 1, &#x27;surprise&#x27;: 2, &#x27;sadness&#x27;: 3, &#x27;anger&#x27;: 4, &#x27;disgust&#x27;: 5, &#x27;fear&#x27;: 6, &#x27;contempt&#x27;: 7}
+
+
+# 加载模型 3分
+ort_session = ort.InferenceSession(&#x27;emotion-ferplus.onnx&#x27;)    # 使用onnxruntime创建一个会话，用于加载并运行模型
+
+
+# 加载本地图片并进行预处理 3分
+input_data = preprocess(&#x27;img_test.png&#x27;)
+
+
+# 准备输入数据，确保其符合模型输入的要求
+ort_inputs = {ort_session.get_inputs()[0].name: input_data}    # ort_session.get_inputs()[0].name 是获取模型的第一个输入的名字
+
+
+# 运行模型，进行预测 3分
+ort_outs = ort_session.run(None, ort_inputs)
+
+
+# 解码模型输出，找到预测概率最高的情感类别 3分
+predicted_label = np.argmax(ort_outs[0])
+
+
+# 根据预测的标签找到对应的情感名称 3分
+predicted_emotion = {value: name for name, value in emotion_table.items()}[predicted_label]
+
+
+# 输出预测的情感
+print(f&quot;Predicted emotion: {predicted_emotion}&quot;)</code></pre>
+<h4>六、结果核验和交互方案</h4>
+<p>使用本地模型和图片，在完成兼容准备后，实测输出：</p>
+<pre><code>Predicted emotion: surprise</code></pre>
+<p>模型给出的是图片的表情分类标签，不应直接当作被摄者真实心理状态的结论。</p>
+<p>答题卷可从以下方面组织至少三条可执行的交互措施：</p>
+<ul>
+<li>拍摄或上传前获得用户同意，说明图片用途，提供删除入口。</li>
+<li>显示原图预览，提示人脸清晰、光线适当、无遮挡，并允许重拍。</li>
+<li>在原图旁显示识别标签，允许用户确认或更正，不能强制接受结果。</li>
+<li>对不清晰、多人或不适合识别的图片提示重新选择或转人工判断。</li>
+<li>不把识别结果自动扩展成医疗诊断、身份判断等超出本题的结论。</li>
+</ul>
+<p>提交材料：附运行结果的 <code>3.2.3.html</code>、填写后的 <code>3.2.3.docx</code>、识别输出截图 <code>3.2.3-1.jpg</code>。</p>
+<p>常见问题：<code>ANTIALIAS</code> 属性错误属于环境兼容；<code>KeyError: 2</code> 多为字典方向错误；类别名称不对先核对八个标签顺序；输入维度不对检查灰度化和两次维度扩展。</p>
+<h4>七、资料来源</h4>
+<p>已对照本单元的 ipynb、题目 HTML、答题卷、实际模型和图片；兼容问题已与固定填空内容分开说明。</p>
+<ul>
+<li>ONNX Runtime Python API：https://onnxruntime.ai/docs/api/python/api_summary.html</li>
+<li>Pillow 10 移除的常量：https://pillow.readthedocs.io/en/stable/releasenotes/10.0.0.html</li>
+<li>NumPy argmax：https://numpy.org/doc/stable/reference/generated/numpy.argmax.html</li>
+</ul></div>
+
+</body>
+</html>

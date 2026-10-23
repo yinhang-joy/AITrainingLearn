@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>3.2.5 人脸AI智能检测系统交互流程设计</title>
+<style>
+:root { --bg:#fff; --fg:#1a1a1a; --line:#e5e5e5; --muted:#737373; --accent:#2563eb; --chip:#f5f5f5; }
+@media (prefers-color-scheme:dark) { :root:not([data-theme="light"]) { --bg:#0a0a0a; --fg:#ededed; --line:#262626; --muted:#a3a3a3; --accent:#60a5fa; --chip:#1a1a1a; } }
+:root[data-theme="dark"] { --bg:#0a0a0a; --fg:#ededed; --line:#262626; --muted:#a3a3a3; --accent:#60a5fa; --chip:#1a1a1a; }
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:var(--bg); color:var(--fg); font-family:system-ui,-apple-system,sans-serif; line-height:1.6; padding:20px; max-width:900px; margin:0 auto; }
+h1 { font-size:24px; margin:0 0 20px; padding-bottom:10px; border-bottom:2px solid var(--line); }
+h2 { font-size:20px; margin:24px 0 12px; color:var(--accent); }
+h3 { font-size:17px; margin:16px 0 8px; }
+h4 { font-size:15px; margin:12px 0 6px; }
+h5 { font-size:14px; margin:10px 0 4px; }
+p { margin:8px 0; }
+ul { margin:8px 0 8px 24px; }
+li { margin:3px 0; }
+pre { background:var(--chip); border:1px solid var(--line); border-radius:8px; padding:12px; overflow-x:auto; margin:12px 0; }
+code { font-family:Consolas,Monaco,monospace; font-size:13px; }
+p code { background:var(--chip); padding:2px 6px; border-radius:4px; }
+table { border-collapse:collapse; margin:12px 0; font-size:14px; width:100%; }
+th, td { border:1px solid var(--line); padding:6px 12px; text-align:left; }
+th { background:var(--chip); font-weight:600; }
+blockquote { border-left:4px solid var(--accent); margin:12px 0; padding:4px 14px; color:var(--muted); background:var(--chip); }
+hr { border:none; border-top:1px solid var(--line); margin:20px 0; }
+details summary { cursor:pointer; color:var(--accent); font-weight:500; user-select:none; }
+.wikilink { color:var(--accent); }
+.concepts { margin-top:40px; padding-top:20px; border-top:2px solid var(--line); }
+.concept-card { border:1px solid var(--line); border-radius:8px; padding:16px; margin:16px 0; background:var(--chip); }
+.concept-card h3 { margin-top:0; color:#9333ea; }
+.content > *:first-child { margin-top:0; }
+.content > *:last-child { margin-bottom:0; }
+</style>
+</head>
+<body>
+<h1>3.2.5 人脸AI智能检测系统交互流程设计</h1>
+<div class="lecture-body"><h3>3.2.5 讲义：人脸AI智能检测系统交互流程设计</h3>
+<ul>
+<li>日期：2026-10-22</li>
+<li>对应练习：<code>人工智能训练师三级上网素材/3.2.5/3.2.5.ipynb</code></li>
+<li>核心任务：遍历图片目录，检测人脸、画框、保存处理图片，并统计人脸框总数。</li>
+</ul>
+<h4>一、资源、环境和交付物</h4>
+<p>本题与前四题的单图分类不同：一张图片中可能有多个人脸，所以模型需要输出位置框与置信度，不能只使用一次全局 <code>argmax</code>。</p>
+<table class='md'><thead><tr>
+<th>本地资源</th><th>用途</th>
+</tr></thead><tbody>
+<tr><td><code>version-RFB-320.onnx</code></td><td>已训练的人脸检测模型</td></tr>
+<tr><td><code>voc-model-labels.txt</code></td><td>两行标签：<code>BACKGROUND</code>、<code>face</code></td></tr>
+<tr><td><code>imgs/1.jpg</code></td><td>当前提供的测试图片，1024×484</td></tr>
+<tr><td><code>vision/utils/box_utils_numpy.py</code></td><td>原题调用的 NMS 后处理工具，需保留目录结构</td></tr>
+<tr><td><code>detect_imgs_results_onnx</code></td><td>原题运行时创建的输出目录，不是输入图片目录</td></tr>
+</tbody></table>
+<p>本地没有预置 <code>3.2.5.docx</code> 模板，但题干要求提交该文件。应按题干准备人机交互优化方案，不能因为没有模板就漏交。</p>
+<p>运行需要 <code>onnxruntime</code>、<code>numpy</code> 和 OpenCV。<code>import cv2</code> 对应的安装包名称是 <code>opencv-python</code>，不是 <code>cv2</code>。如果环境缺少它，应安装到 Jupyter 实际使用的解释器；例如从项目根目录执行：</p>
+<pre><code>uv pip install --python .venv/Scripts/python.exe opencv-python</code></pre>
+<p>包安装属于环境准备，不是题目填空。讲义没有替你修改依赖或练习文件。</p>
+<h4>二、模型输入输出和整体流程</h4>
+<p>已核对本地模型：</p>
+<table class='md'><thead><tr>
+<th>项目</th><th>名称和形状</th>
+</tr></thead><tbody>
+<tr><td>输入</td><td><code>input</code>，<code>float32</code>，<code>(1, 3, 240, 320)</code></td></tr>
+<tr><td>输出一</td><td><code>scores</code>，<code>(1, 4420, 2)</code></td></tr>
+<tr><td>输出二</td><td><code>boxes</code>，<code>(1, 4420, 4)</code></td></tr>
+</tbody></table>
+<p><code>4420</code> 是候选框数量，不是最终检测到的人脸数；<code>2</code> 是背景与人脸两个类别；每个框有四个坐标值。</p>
+<p>流程是：加载模型和标签 → 遍历 <code>imgs</code> → 读取并预处理 → 模型推理 → 置信度过滤和 NMS → 映射回原图坐标 → 画框保存 → 累计数量。</p>
+<h4>三、图像读取与预处理</h4>
+<pre><code>orig_image = cv2.imread(img_path)
+image = cv2.cvtColor(orig_image, cv2.COLOR_BGR2RGB)
+image = cv2.resize(image, (320, 240))
+image_mean = np.array([127, 127, 127])
+image = (image - image_mean) / 128
+image = np.transpose(image, [2, 0, 1])
+image = np.expand_dims(image, axis=0)
+image = image.astype(np.float32)</code></pre>
+<ul>
+<li><code>cv2.imread</code> 返回的彩色图默认是 BGR，原题随后转换为模型使用的 RGB。</li>
+<li><code>resize</code> 的大小参数顺序是宽、高，所以 <code>(320, 240)</code> 生成数组形状 <code>(240, 320, 3)</code>。</li>
+<li>本模型的归一化是减 <code>[127, 127, 127]</code> 再除以 128，不是直接复制 ResNet 的处理参数。</li>
+<li>转置后变成 <code>(3, 240, 320)</code>；扩展后为 <code>(1, 3, 240, 320)</code>。</li>
+<li><code>orig_image</code> 保留原图用于画框，模型输入用另一个变量 <code>image</code>。</li>
+</ul>
+<p>如果读取失败，<code>orig_image</code> 可能是 <code>None</code>，随后 <code>cvtColor</code> 会报错。先检查图片路径与文件有效性，不要把它误判为模型推理错误。</p>
+<h4>四、run 的返回值与后处理</h4>
+<pre><code>confidences, boxes = ort_session.run(None, {input_name: image})
+boxes, labels, probs = predict(
+    orig_image.shape[1], orig_image.shape[0],
+    confidences, boxes, threshold
+)</code></pre>
+<p><code>run</code> 的第一个参数 <code>None</code> 表示返回全部输出；第二个参数是“模型输入名 → 图片数组”。当前模型输出顺序为 scores、boxes，与原题左侧的两个变量对应。</p>
+<p>原题已经提供 <code>predict</code>，需要理解它，而不是另写一套后处理：</p>
+<ul>
+<li>跳过类别 0，也就是背景。</li>
+<li>使用 <code>probs &gt; 0.7</code> 筛选候选人脸框。</li>
+<li><code>hard_nms</code> 按置信度保留候选框，用 IoU 阈值 0.3 去掉高度重叠的重复框。</li>
+<li>将归一化坐标乘原图宽、高，转换为原图像素坐标。</li>
+<li>返回最终框、标签和置信度。工具函数实际返回保留的框与分数，不是简单的索引列表。</li>
+</ul>
+<p><code>orig_image.shape</code> 的前两项是高度、宽度，所以传入 <code>predict</code> 时先取 <code>shape[1]</code> 作为宽，再取 <code>shape[0]</code> 作为高。</p>
+<p><code>boxes.shape[0]</code> 才是后处理后留下的框数。最终 <code>sum</code> 统计各图片的框数量之和，不是跨图片去重后的不同人员数。</p>
+<h4>五、目录创建、绘图与原题边界</h4>
+<p><code>class_names</code> 逐行读取后使用 <code>name.strip()</code> 去掉换行；标签顺序不可反转。<code>os.makedirs(result_path)</code> 创建结果目录，前面的存在性判断已由原题提供。</p>
+<p><code>cv2.rectangle</code> 在原始图像上画框；<code>cv2.imwrite</code> 把当前图像保存到输出目录，颜色参数按 BGR 理解。</p>
+<p>原题有一个固定代码边界：<code>cv2.imwrite</code> 放在人脸框循环内部。因此同一张图有多个框时会覆盖同名结果，最后保存全部已绘制框；没有检测到人脸时，这张图片不会被保存。不要因此断定填空错误，也不要为了凑齐输出图片擅改原题。可在交互优化方案中建议对“未检出”图片也提供清楚的状态。</p>
+<h4>六、逐空对照和完整参考</h4>
+<p>注意原题已有的前缀：<code>os._______________</code> 应填 <code>makedirs(result_path)</code>；已经给出 <code>(None, {input_name: image})</code> 的地方只填 <code>ort_session.run</code>。</p>
+<table class='md'><thead><tr>
+<th>空号</th><th>代码行</th><th>填写内容</th>
+</tr></thead><tbody>
+<tr><td>1</td><td>38</td><td><code>name.strip()</code></td></tr>
+<tr><td>2</td><td>41</td><td><code>ort.InferenceSession</code></td></tr>
+<tr><td>3</td><td>44</td><td><code>ort_session.get_inputs</code></td></tr>
+<tr><td>4</td><td>58</td><td><code>makedirs(result_path)</code></td></tr>
+<tr><td>5</td><td>68</td><td><code>cv2.imread(img_path)</code></td></tr>
+<tr><td>6</td><td>72</td><td><code>cv2.resize</code></td></tr>
+<tr><td>7</td><td>72</td><td><code>image</code></td></tr>
+<tr><td>8</td><td>74</td><td><code>np.array</code></td></tr>
+<tr><td>9</td><td>80</td><td><code>np.expand_dims</code></td></tr>
+<tr><td>10</td><td>86</td><td><code>ort_session.run</code></td></tr>
+</tbody></table>
+<p>以下参考保留原题固定代码，仅补齐填空。请从本单元目录运行，以找到 <code>imgs</code>、<code>vision</code> 和模型；完整流程会生成检测图片。</p>
+<pre><code>import os
+import time
+import cv2
+import numpy as np
+import vision.utils.box_utils_numpy as box_utils
+import onnxruntime as ort
+
+# 定义预测函数，对模型输出的边界框和置信度进行后处理
+def predict(width, height, confidences, boxes, prob_threshold, iou_threshold=0.3, top_k=-1):
+    boxes = boxes[0]
+    confidences = confidences[0]
+    picked_box_probs = []
+    picked_labels = []
+    for class_index in range(1, confidences.shape[1]):
+        probs = confidences[:, class_index]
+        mask = probs &gt; prob_threshold
+        probs = probs[mask]
+        if probs.shape[0] == 0:
+            continue
+        subset_boxes = boxes[mask, :]
+        box_probs = np.concatenate([subset_boxes, probs.reshape(-1, 1)], axis=1)
+        box_probs = box_utils.hard_nms(box_probs,
+                                       iou_threshold=iou_threshold,
+                                       top_k=top_k,
+                                       )
+        picked_box_probs.append(box_probs)
+        picked_labels.extend([class_index] * box_probs.shape[0])
+    if not picked_box_probs:
+        return np.array([]), np.array([]), np.array([])
+    picked_box_probs = np.concatenate(picked_box_probs)
+    picked_box_probs[:, 0] *= width
+    picked_box_probs[:, 1] *= height
+    picked_box_probs[:, 2] *= width
+    picked_box_probs[:, 3] *= height
+    return picked_box_probs[:, :4].astype(np.int32), np.array(picked_labels), picked_box_probs[:, 4]
+
+# 从标签文件中读取每一行，并去除行首尾的空白字符，得到类别名称列表 2分
+class_names = [name.strip() for name in open(&#x27;voc-model-labels.txt&#x27;).readlines()]
+
+# 创建 ONNX Runtime 的推理会话，用于运行模型进行推理 2分
+ort_session = ort.InferenceSession(&#x27;version-RFB-320.onnx&#x27;)
+
+# 获取模型输入的名称 2分
+input_name = ort_session.get_inputs()[0].name
+
+# 定义保存检测结果图像的目录路径
+result_path = &quot;./detect_imgs_results_onnx&quot;
+
+# 定义置信度阈值，用于筛选出置信度较高的检测结果
+threshold = 0.7
+# 定义存储待检测图像的目录路径
+path = &quot;imgs&quot;
+# 用于统计所有图像中检测到的目标框总数，初始化为 0
+sum = 0
+
+# 如果保存结果的目录不存在，则创建该目录 2分
+if not os.path.exists(result_path):
+    os.makedirs(result_path)
+
+# 获取指定目录下的所有文件和文件夹名称列表
+listdir = os.listdir(path)
+
+# 遍历目录下的每个文件
+for file_path in listdir:
+    # 拼接图像文件的完整路径
+    img_path = os.path.join(path, file_path)
+    # 使用 OpenCV 读取图像文件 2分
+    orig_image = cv2.imread(img_path)
+    # 将图像从 BGR 颜色空间转换为 RGB 颜色空间（许多模型要求输入为 RGB 格式）
+    image = cv2.cvtColor(orig_image, cv2.COLOR_BGR2RGB)
+    # 将图像调整为 320x240 的尺寸（符合模型输入的尺寸要求） 2分
+    image = cv2.resize(image, (320, 240))
+    # 定义图像归一化的均值数组 2分
+    image_mean = np.array([127, 127, 127])
+    # 对图像进行归一化处理，减去均值并除以 128
+    image = (image - image_mean) / 128
+    # 将图像的维度从 (高度, 宽度, 通道数) 转换为 (通道数, 高度, 宽度)
+    image = np.transpose(image, [2, 0, 1])
+    # 在第一个维度上扩展一个维度，将图像变为 (1, 通道数, 高度, 宽度)，以符合模型输入的维度要求  1分
+    image = np.expand_dims(image, axis=0)
+    # 将图像数据类型转换为 float32 类型
+    image = image.astype(np.float32)
+    # 记录开始时间，用于计算模型推理的耗时
+    time_time = time.time()
+    # 使用 ONNX Runtime 运行模型，输入图像数据，得到模型输出的置信度和边界框  2分
+    confidences, boxes = ort_session.run(None, {input_name: image})
+    # 计算并打印模型推理的耗时
+    print(&quot;cost time:{}&quot;.format(time.time() - time_time))
+    # 调用 predict 函数对模型输出的边界框和置信度进行后处理，得到最终的边界框、类别标签和置信度
+    boxes, labels, probs = predict(orig_image.shape[1], orig_image.shape[0], confidences, boxes, threshold)
+    # 遍历每个检测到的目标框
+    for i in range(boxes.shape[0]):
+        # 获取当前目标框的坐标
+        box = boxes[i, :]
+        # 生成当前目标框的标签字符串，包含类别名称和置信度
+        label = f&quot;{class_names[labels[i]]}: {probs[i]:.2f}&quot;
+
+        # 在原始图像上绘制目标框，颜色为 (255, 255, 0)，线条粗细为 4
+        cv2.rectangle(orig_image, (box[0], box[1]), (box[2], box[3]), (255, 255, 0), 4)
+        # 将绘制了目标框的图像保存到结果目录中
+        cv2.imwrite(os.path.join(result_path, file_path), orig_image)
+    # 累加当前图像中检测到的目标框数量到总数中
+    sum += boxes.shape[0]
+# 打印所有图像中检测到的目标框总数
+print(&quot;sum:{}&quot;.format(sum))</code></pre>
+<h4>七、结果核验与交互优化方案</h4>
+<p>当前 <code>imgs</code> 中提供一张 <code>1.jpg</code>。使用原题阈值 0.7 和 NMS 阈值 0.3，实测得到 4 个保留框，最终输出为 <code>sum:4</code>。推理耗时取决于设备，不要求与你看到的示例秒数相同，也不要把数量写死。</p>
+<p>题干要求的交互优化方案应包含界面布局和操作流程，可写为：</p>
+<ul>
+<li>界面左侧是图片目录选择和缩略图列表，右侧显示原图及检测框，下方显示当前图框数、处理进度和累计框数。</li>
+<li>用户选择目录并预览，确认后开始批量检测；区分处理中、已完成、读取失败、未检出等状态。</li>
+<li>用户可放大检查结果、调整阈值后重新检测、标记误检与漏检；人工确认后再导出。</li>
+<li>显示输出目录与保存结果，对覆盖同名文件给出提示，并提供失败重试或取消入口。</li>
+<li>告知图片使用目的，限制人脸图片访问，支持删除；人脸检测不等于身份识别。</li>
+</ul>
+<p>提交材料：附运行结果的 <code>3.2.5.html</code>、自行准备的 <code>3.2.5.docx</code>、运行输出截图 <code>3.2.5-1.jpg</code>，以及 <code>detect_imgs_results_onnx</code> 中的检测结果图片。检查是否真正画出了框，不能只交计数截图而漏交图片。</p>
+<p>常见问题：缺少 <code>cv2</code> 属于环境问题；缺少 <code>vision</code> 先检查工作目录和辅助文件；模型输入维度要求高 240、宽 320；零检测时不保存图片是原题的循环位置造成；修改原题阈值会影响计数，不应把别的阈值结果当作固定答案。</p>
+<h4>八、资料来源</h4>
+<p>已对照本单元的 ipynb、题目 HTML、实际模型、标签、图片目录和 NMS 工具；没有虚构不存在的答题卷模板。</p>
+<ul>
+<li>ONNX Runtime Python API：https://onnxruntime.ai/docs/api/python/api_summary.html</li>
+<li>OpenCV 图像缩放：https://docs.opencv.org/4.x/da/d6e/tutorial_py_geometric_transformations.html</li>
+<li>NumPy expand_dims：https://numpy.org/doc/stable/reference/generated/numpy.expand_dims.html</li>
+</ul></div>
+
+</body>
+</html>

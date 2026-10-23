@@ -56,7 +56,7 @@ details summary { cursor:pointer; color:var(--accent); font-weight:500; user-sel
 <tr><td>定义自变量和因变量</td><td><code>X = data.drop(columns=[target])</code> + <code>y = data[target]</code></td></tr>
 <tr><td>划分训练集和测试集</td><td><code>train_test_split(X, y, test_size=0.2, random_state=42)</code></td></tr>
 <tr><td>训练线性回归模型</td><td><code>LinearRegression()</code> + <code>model.fit(X_train, y_train)</code></td></tr>
-<tr><td>保存模型</td><td><code>joblib.dump(model, 'xxx.pkl')</code></td></tr>
+<tr><td>保存模型</td><td><code>joblib.dump(model, '2.2.4_model.pkl')</code></td></tr>
 <tr><td>预测并保存结果</td><td><code>model.predict(X_test)</code> + <code>results.to_csv(...)</code></td></tr>
 <tr><td>评估模型性能</td><td><code>mean_squared_error(...)</code> + <code>r2_score(...)</code></td></tr>
 <tr><td>模型优化（XGBoost）</td><td><code>XGBRegressor(...)</code> + 参数调优</td></tr>

@@ -41,13 +41,14 @@ details summary { cursor:pointer; color:var(--accent); font-weight:500; user-sel
 <ul>
 <li><strong>日期</strong>: 2026-08-20</li>
 <li><strong>状态</strong>: 待讲解 → 待做题（ipynb）</li>
-<li><strong>数据</strong>: <code>finance数据集.csv</code>（15000 行 × 12 列，信用评分数据）</li>
+<li><strong>数据</strong>: <code>finance数据集.csv</code>（142577 行 × 12 列，含 1 个索引列、10 个自变量和 1 个目标变量）</li>
 <li><strong>考核时间</strong>: 20 分钟，机考</li>
+<li><strong>输出</strong>: <code>2.1.3_cleaned_data.csv</code>、<code>2.1.3.docx</code>、<code>2.1.3.html</code></li>
 </ul>
 <hr>
 <h4>一、任务解读（数据清洗全流程）</h4>
 <h5>场景背景</h5>
-<p>互联网金融中的信用评分系统，通过客户资料、历史数据、第三方平台数据评估借贷人违约概率。本任务使用 Finance 数据集（15000 条样本，10 个自变量 + 1 个目标变量 <code>SeriousDlqin2yrs</code>），要求完成模型开发前的数据预处理。</p>
+<p>互联网金融中的信用评分系统，通过客户资料、历史数据、第三方平台数据评估借贷人违约概率。本任务使用 Finance 数据集（142577 条样本，10 个自变量 + 1 个目标变量 <code>SeriousDlqin2yrs</code>，另有索引列 <code>Unnamed: 0</code>），要求完成模型开发前的数据预处理。</p>
 <h5>任务拆解</h5>
 <table class='md'><thead><tr>
 <th>中文要求</th><th>翻译成 pandas/sklearn</th>
@@ -72,8 +73,13 @@ import seaborn as sns
 # 设置画布尺寸：12×8 英寸
 plt.figure(figsize=(12, 8))
 
-# 只对数值列绘制箱线图
-numeric_cols = data.select_dtypes(include=[&#x27;float64&#x27;, &#x27;int64&#x27;]).columns
+# 目标列是标签，索引列只是行号，都不能作为异常值特征
+excluded_cols = [&#x27;Unnamed: 0&#x27;, &#x27;SeriousDlqin2yrs&#x27;]
+numeric_cols = (
+    data.drop(columns=excluded_cols, errors=&#x27;ignore&#x27;)
+        .select_dtypes(include=[&#x27;float64&#x27;, &#x27;int64&#x27;])
+        .columns
+)
 
 # 创建 3 行 4 列的子图网格
 for i, col in enumerate(numeric_cols, 1):
@@ -86,6 +92,7 @@ plt.show()</code></pre>
 <p><strong>知识点</strong>：</p>
 <ul>
 <li><code>.select_dtypes(include=['float64', 'int64'])</code>：只选数值列（字符串列不画箱线图）</li>
+<li><code>SeriousDlqin2yrs</code> 是分类标签，<code>Unnamed: 0</code> 是索引号；即使它们是数值类型，也必须排除</li>
 <li><code>enumerate(列表, 1)</code>：从 1 开始编号（subplot 索引从 1 开始）</li>
 <li><code>plt.subplot(行, 列, 索引)</code>：在 3×4 网格的第 i 个位置画图</li>
 </ul>
@@ -109,12 +116,18 @@ upper_bound = Q3 + 1.5 * IQR
 
 # 过滤异常值：保留所有列都在边界内的行
 data_cleaned = data[~((data[numeric_cols] &lt; lower_bound) | 
-                       (data[numeric_cols] &gt; upper_bound)).any(axis=1)]</code></pre>
+                       (data[numeric_cols] &gt; upper_bound)).any(axis=1)].copy()
+
+# 信用数据类别不平衡，清洗后必须确认正类没有被错误清空
+print(data[&#x27;SeriousDlqin2yrs&#x27;].value_counts())
+print(data_cleaned[&#x27;SeriousDlqin2yrs&#x27;].value_counts())</code></pre>
 <p><strong>易错点</strong>：</p>
 <ul>
 <li><code>~</code> 表示取反（保留<strong>非</strong>异常值的行）</li>
 <li><code>.any(axis=1)</code>：每行只要有一列异常就标记为 True</li>
 <li><code>[~(...)]</code>：最终保留所有列都正常的行</li>
+<li><strong>绝不能对目标列做 IQR</strong>：二分类目标的少数类 <code>1</code> 会被当作“异常值”删除</li>
+<li>逾期次数等长尾变量可能是真实高风险信号；实际项目应结合业务阈值，不能机械删除全部箱线图离群点</li>
 </ul>
 <hr>
 <h5>③ 重复值检测与删除</h5>
@@ -135,15 +148,17 @@ print(f&#x27;删除的重复行数: {num_duplicates}&#x27;)</code></pre>
 <pre><code>from sklearn.preprocessing import MinMaxScaler
 
 scaler = MinMaxScaler()
-data_cleaned[numeric_cols] = scaler.fit_transform(data_cleaned[numeric_cols])</code></pre>
+scale_cols = list(numeric_cols) + [&#x27;IncomeToDebtRatio&#x27;]
+data_cleaned[scale_cols] = scaler.fit_transform(data_cleaned[scale_cols])</code></pre>
 <p><strong>原理</strong>：$x' = \frac{x - min}{max - min}$</p>
-<p><strong>易错点</strong>：只对数值列归一化，字符串列（如 ID）跳过。</p>
+<p><strong>易错点</strong>：只归一化自变量。目标列 <code>SeriousDlqin2yrs</code> 和索引列 <code>Unnamed: 0</code> 都不能归一化。</p>
 <hr>
 <h5>⑤ 特征工程：创建新特征</h5>
-<pre><code># 示例：创建收入负债比特征
+<pre><code># 先在原始量纲上创建收入负债比，再统一归一化
 data_cleaned[&#x27;IncomeToDebtRatio&#x27;] = (
-    data_cleaned[&#x27;MonthlyIncome&#x27;] / data_cleaned[&#x27;DebtRatio&#x27;]
-)</code></pre>
+    data_cleaned[&#x27;MonthlyIncome&#x27;] / data_cleaned[&#x27;DebtRatio&#x27;].replace(0, pd.NA)
+)
+data_cleaned = data_cleaned.dropna(subset=[&#x27;IncomeToDebtRatio&#x27;])</code></pre>
 <p><strong>考试要求</strong>：题目会指定创建哪些特征，按要求计算即可。</p>
 <hr>
 <h5>⑥ 分离特征与目标变量</h5>
@@ -190,9 +205,14 @@ from sklearn.model_selection import train_test_split
 data = pd.read_csv(&#x27;finance数据集.csv&#x27;)
 data.head()
 
-# ② 异常值检测（箱线图）
+# ② 异常值检测（排除索引和目标列）
 plt.figure(figsize=(12, 8))
-numeric_cols = data.select_dtypes(include=[&#x27;float64&#x27;, &#x27;int64&#x27;]).columns
+excluded_cols = [&#x27;Unnamed: 0&#x27;, &#x27;SeriousDlqin2yrs&#x27;]
+numeric_cols = (
+    data.drop(columns=excluded_cols, errors=&#x27;ignore&#x27;)
+        .select_dtypes(include=[&#x27;float64&#x27;, &#x27;int64&#x27;])
+        .columns
+)
 
 for i, col in enumerate(numeric_cols, 1):
     plt.subplot(3, 4, i)
@@ -208,24 +228,33 @@ Q3 = data[numeric_cols].quantile(0.75)
 IQR = Q3 - Q1
 
 data_cleaned = data[~((data[numeric_cols] &lt; (Q1 - 1.5 * IQR)) | 
-                       (data[numeric_cols] &gt; (Q3 + 1.5 * IQR))).any(axis=1)]
+                       (data[numeric_cols] &gt; (Q3 + 1.5 * IQR))).any(axis=1)].copy()
+
+print(&#x27;清洗前类别分布：&#x27;)
+print(data[&#x27;SeriousDlqin2yrs&#x27;].value_counts())
+print(&#x27;清洗后类别分布：&#x27;)
+print(data_cleaned[&#x27;SeriousDlqin2yrs&#x27;].value_counts())
 
 # ③ 重复值处理
-duplicates = data_cleaned.duplicated()
-num_duplicates = duplicates.sum()
-data_cleaned = data_cleaned[~duplicates]
+num_duplicates = data_cleaned.duplicated().sum()
+data_cleaned = data_cleaned.drop_duplicates()
 print(f&#x27;删除的重复行数: {num_duplicates}&#x27;)
 
-# ④ 归一化
+# ④ 特征工程：必须在原始量纲上计算，避免用归一化后的比值
+data_cleaned[&#x27;IncomeToDebtRatio&#x27;] = (
+    data_cleaned[&#x27;MonthlyIncome&#x27;]
+    / data_cleaned[&#x27;DebtRatio&#x27;].replace(0, pd.NA)
+)
+data_cleaned = data_cleaned.dropna(subset=[&#x27;IncomeToDebtRatio&#x27;])
+
+# ⑤ 归一化自变量，不处理目标列和索引列
 scaler = MinMaxScaler()
-data_cleaned[numeric_cols] = scaler.fit_transform(data_cleaned[numeric_cols])
+scale_cols = list(numeric_cols) + [&#x27;IncomeToDebtRatio&#x27;]
+data_cleaned[scale_cols] = scaler.fit_transform(data_cleaned[scale_cols])
 
-# ⑤ 特征工程（示例，实际按题目要求）
-# data_cleaned[&#x27;IncomeToDebtRatio&#x27;] = ...
-
-# ⑥ 设定目标变量
+# ⑥ 设定目标变量，并从特征中排除索引列
 target_variable = &#x27;SeriousDlqin2yrs&#x27;
-X = data_cleaned.drop(columns=[target_variable])
+X = data_cleaned.drop(columns=[target_variable, &#x27;Unnamed: 0&#x27;], errors=&#x27;ignore&#x27;)
 y = data_cleaned[target_variable]
 
 # ⑦ 数据集划分
@@ -252,16 +281,20 @@ data_cleaned = data[~((data[numeric_cols] &lt; lower) | (data[numeric_cols] &gt;
 <pre><code># ❌ 错误（全部列包括字符串列）
 Q1 = data.quantile(0.25)   # 字符串列会报错
 
-# ✅ 正确（只选数值列）
-numeric_cols = data.select_dtypes(include=[&#x27;float64&#x27;, &#x27;int64&#x27;]).columns
+# ✅ 正确（只选数值自变量，并排除索引与目标）
+numeric_cols = (
+    data.drop(columns=[&#x27;Unnamed: 0&#x27;, &#x27;SeriousDlqin2yrs&#x27;], errors=&#x27;ignore&#x27;)
+        .select_dtypes(include=[&#x27;float64&#x27;, &#x27;int64&#x27;])
+        .columns
+)
 Q1 = data[numeric_cols].quantile(0.25)</code></pre>
 <hr>
 <h5>⚠️ 陷阱 3：归一化后覆盖原列</h5>
 <pre><code># ❌ 错误（创建新 DataFrame，原列未更新）
 scaler.fit_transform(data_cleaned[numeric_cols])
 
-# ✅ 正确（结果赋值回原列）
-data_cleaned[numeric_cols] = scaler.fit_transform(data_cleaned[numeric_cols])</code></pre>
+# ✅ 正确（只将数值自变量赋值回原列）
+data_cleaned[scale_cols] = scaler.fit_transform(data_cleaned[scale_cols])</code></pre>
 <hr>
 <h5>⚠️ 陷阱 4：<code>train_test_split</code> 参数顺序</h5>
 <pre><code># ❌ 错误（X 和 y 顺序颠倒）

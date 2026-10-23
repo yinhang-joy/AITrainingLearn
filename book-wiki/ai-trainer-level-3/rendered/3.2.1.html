@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>3.2.1 图像识别评估系统交互流程设计</title>
+<style>
+:root { --bg:#fff; --fg:#1a1a1a; --line:#e5e5e5; --muted:#737373; --accent:#2563eb; --chip:#f5f5f5; }
+@media (prefers-color-scheme:dark) { :root:not([data-theme="light"]) { --bg:#0a0a0a; --fg:#ededed; --line:#262626; --muted:#a3a3a3; --accent:#60a5fa; --chip:#1a1a1a; } }
+:root[data-theme="dark"] { --bg:#0a0a0a; --fg:#ededed; --line:#262626; --muted:#a3a3a3; --accent:#60a5fa; --chip:#1a1a1a; }
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:var(--bg); color:var(--fg); font-family:system-ui,-apple-system,sans-serif; line-height:1.6; padding:20px; max-width:900px; margin:0 auto; }
+h1 { font-size:24px; margin:0 0 20px; padding-bottom:10px; border-bottom:2px solid var(--line); }
+h2 { font-size:20px; margin:24px 0 12px; color:var(--accent); }
+h3 { font-size:17px; margin:16px 0 8px; }
+h4 { font-size:15px; margin:12px 0 6px; }
+h5 { font-size:14px; margin:10px 0 4px; }
+p { margin:8px 0; }
+ul { margin:8px 0 8px 24px; }
+li { margin:3px 0; }
+pre { background:var(--chip); border:1px solid var(--line); border-radius:8px; padding:12px; overflow-x:auto; margin:12px 0; }
+code { font-family:Consolas,Monaco,monospace; font-size:13px; }
+p code { background:var(--chip); padding:2px 6px; border-radius:4px; }
+table { border-collapse:collapse; margin:12px 0; font-size:14px; width:100%; }
+th, td { border:1px solid var(--line); padding:6px 12px; text-align:left; }
+th { background:var(--chip); font-weight:600; }
+blockquote { border-left:4px solid var(--accent); margin:12px 0; padding:4px 14px; color:var(--muted); background:var(--chip); }
+hr { border:none; border-top:1px solid var(--line); margin:20px 0; }
+details summary { cursor:pointer; color:var(--accent); font-weight:500; user-select:none; }
+.wikilink { color:var(--accent); }
+.concepts { margin-top:40px; padding-top:20px; border-top:2px solid var(--line); }
+.concept-card { border:1px solid var(--line); border-radius:8px; padding:16px; margin:16px 0; background:var(--chip); }
+.concept-card h3 { margin-top:0; color:#9333ea; }
+.content > *:first-child { margin-top:0; }
+.content > *:last-child { margin-bottom:0; }
+</style>
+</head>
+<body>
+<h1>3.2.1 图像识别评估系统交互流程设计</h1>
+<div class="lecture-body"><h3>3.2.1 讲义：图像识别评估系统交互流程设计</h3>
+<ul>
+<li>日期：2026-10-22</li>
+<li>对应练习：<code>人工智能训练师三级上网素材/3.2.1/3.2.1.ipynb</code></li>
+<li>核心任务：加载已训练的 ONNX 模型，输出测试图片概率最高的 5 个类别。</li>
+</ul>
+<h4>一、先分清本章在做什么</h4>
+<p>第二章主要使用 <code>model.fit(X_train, y_train)</code> 训练模型。本题的 <code>resnet.onnx</code> 已经训练完成，不需要再次训练，也不需要划分训练集、计算 MSE 或保存新的 pkl。</p>
+<p>本题流程是：加载模型和标签 → 读取图片 → 按模型要求整理图片 → 推理 → 将输出转为概率 → 输出 Top 5。</p>
+<p>题干介绍了模型训练所用框架，但实际填空使用的是 ONNX Runtime；不必为了这段代码另外导入 PyTorch。</p>
+<table class='md'><thead><tr>
+<th>本地资源</th><th>作用</th><th>已核对的信息</th>
+</tr></thead><tbody>
+<tr><td><code>resnet.onnx</code></td><td>图像分类模型</td><td>输入 <code>data</code>，输出 <code>resnetv17_dense0_fwd</code></td></tr>
+<tr><td><code>labels.txt</code></td><td>类别索引对应的名称</td><td>1000 行，顺序必须保持不变</td></tr>
+<tr><td><code>img_test.jpg</code></td><td>测试图片</td><td>RGB，原尺寸 960×640</td></tr>
+<tr><td><code>3.2.1.docx</code></td><td>人机交互方案答题卷</td><td>在原有指定单元格填写</td></tr>
+</tbody></table>
+<p>模型输入是 <code>float32</code>、<code>(N, 3, 224, 224)</code>；本题只处理一张图片，因此实际输入形状为 <code>(1, 3, 224, 224)</code>。输出形状为 <code>(1, 1000)</code>。</p>
+<p>相对文件名以当前工作目录为准。应从本单元目录打开练习，不要把题干中的考试机 <code>D:\jupyter_notebook\onnx</code> 路径直接套到当前电脑。</p>
+<h4>二、加载模型和图像</h4>
+<pre><code>session = ort.InferenceSession(&#x27;resnet.onnx&#x27;)
+image = Image.open(&#x27;img_test.jpg&#x27;).convert(&#x27;RGB&#x27;)
+processed_image = preprocess_image(image)</code></pre>
+<ul>
+<li><code>ort</code> 是 <code>onnxruntime</code> 的导入别名，<code>InferenceSession</code> 创建加载模型的推理会话。</li>
+<li><code>Image.open(...)</code> 打开文件；<code>convert('RGB')</code> 保证三个颜色通道。</li>
+<li><code>preprocess_image(image)</code> 调用原题已经给出的预处理函数，不是重新定义函数。</li>
+</ul>
+<p>预处理中的形状变化要会看：</p>
+<table class='md'><thead><tr>
+<th>步骤</th><th>数据形状或含义</th>
+</tr></thead><tbody>
+<tr><td>缩放、中心裁剪</td><td>先变为 256×256，再裁剪为 224×224</td></tr>
+<tr><td><code>np.array</code></td><td><code>(224, 224, 3)</code>，顺序是高度、宽度、通道</td></tr>
+<tr><td>除以 255，减均值、除标准差</td><td>按原题的 RGB 参数进行数值归一化</td></tr>
+<tr><td><code>np.transpose(image, (2, 0, 1))</code></td><td><code>(3, 224, 224)</code>，把通道移到最前面</td></tr>
+<tr><td><code>reshape((1,) + image.shape)</code></td><td><code>(1, 3, 224, 224)</code>，增加一张图片的批次维度</td></tr>
+</tbody></table>
+<p>原题在预处理之后还执行了 <code>processed_image.astype(np.float32)</code>。不能因为函数内曾转过 float32 就忽略这一行：后续与均值、标准差运算时，数组可能发生类型提升。</p>
+<h4>三、session.run 的两个参数怎么记</h4>
+<pre><code>input_name = session.get_inputs()[0].name
+output_name = session.get_outputs()[0].name
+output = session.run([output_name], {input_name: processed_image})[0]</code></pre>
+<ul>
+<li>第一个参数 <code>[output_name]</code>：要求返回哪些模型输出，是一个名称列表。</li>
+<li>第二个参数 <code>{input_name: processed_image}</code>：字典的键是模型输入名，值是准备好的图片数组。</li>
+<li><code>run(...)</code> 返回输出列表；最后的 <code>[0]</code> 是取第一个输出张量，不是取第一个预测类别。</li>
+<li><code>get_inputs()</code> 和 <code>get_outputs()</code> 返回输入、输出信息列表。名称不要凭经验硬猜。</li>
+</ul>
+<p>可以记为：<code>run(要取的输出, 按名字提供的输入)</code>。这里没有 <code>y_test</code>；图片识别时只把待识别图片交给模型。</p>
+<h4>四、softmax、argsort 与 Top 5</h4>
+<pre><code>probabilities = scipy.special.softmax(output, axis=-1)
+top5_idx = np.argsort(probabilities[0])[-5:][::-1]
+top5_prob = probabilities[0][top5_idx]</code></pre>
+<p><code>softmax</code> 将本题的类别分数转为概率；<code>axis=-1</code> 表示沿最后一个维度，也就是 1000 个类别的方向计算。<code>probabilities[0]</code> 才是第一张图片对应的一维概率数组。</p>
+<ul>
+<li><code>np.argmax(...)</code>：只取最大值所在位置，适合找 Top 1。</li>
+<li><code>np.argsort(...)</code>：返回从小到大排列的索引，不是排序后的概率值。</li>
+<li><code>[-5:]</code>：取最大的 5 个索引。</li>
+<li><code>[::-1]</code>：反转顺序，变成概率从高到低。</li>
+<li><code>labels[top5_idx[i]]</code>：用类别索引查名称。</li>
+</ul>
+<p>注意两次 <code>[0]</code> 的区别：<code>run(...)[0]</code> 选第一个输出，<code>probabilities[0]</code> 选第一张图片。</p>
+<h4>五、逐空对照和完整参考</h4>
+<p>下表“填写内容”只替换下划线；括号、<code>('RGB')</code>、切片等题目已有部分不要重复写。</p>
+<table class='md'><thead><tr>
+<th>空号</th><th>代码行</th><th>填写内容</th>
+</tr></thead><tbody>
+<tr><td>1</td><td>23</td><td><code>ort.InferenceSession('resnet.onnx')</code></td></tr>
+<tr><td>2</td><td>38</td><td><code>Image.open('img_test.jpg').convert</code></td></tr>
+<tr><td>3</td><td>42</td><td><code>preprocess_image(image)</code></td></tr>
+<tr><td>4</td><td>50</td><td><code>session.run</code></td></tr>
+<tr><td>5</td><td>54</td><td><code>scipy.special.softmax</code></td></tr>
+<tr><td>6</td><td>58</td><td><code>np.argsort(probabilities[0])</code></td></tr>
+<tr><td>7</td><td>59</td><td><code>probabilities[0][top5_idx]</code></td></tr>
+</tbody></table>
+<p>以下参考保留原题固定代码，仅补齐填空。在本单元目录运行。</p>
+<pre><code>import onnxruntime as ort
+import numpy as np
+import scipy.special
+from PIL import Image
+
+
+# 预处理图像
+def preprocess_image(image, resize_size=256, crop_size=224, mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]):
+  image = image.resize((resize_size, resize_size), Image.BILINEAR)
+  w, h = image.size
+  left = (w - crop_size) / 2
+  top = (h - crop_size) / 2
+  image = image.crop((left, top, left + crop_size, top + crop_size))
+  image = np.array(image).astype(np.float32)
+  image = image / 255.0
+  image = (image - mean) / std
+  image = np.transpose(image, (2, 0, 1))
+  image = image.reshape((1,) + image.shape)
+  return image
+
+
+# 模型加载 2分
+session = ort.InferenceSession(&#x27;resnet.onnx&#x27;)
+
+
+# 加载类别标签
+labels_path = &#x27;labels.txt&#x27;
+with open(labels_path) as f:
+  labels = [line.strip() for line in f.readlines()]
+
+
+# 获取模型输入和输出的名称
+input_name = session.get_inputs()[0].name
+output_name = session.get_outputs()[0].name
+
+
+# 加载图片 2分
+image = Image.open(&#x27;img_test.jpg&#x27;).convert(&#x27;RGB&#x27;)
+
+
+# 预处理图片 2分
+processed_image = preprocess_image(image)
+
+
+# 确保输入数据是 float32 类型
+processed_image = processed_image.astype(np.float32)
+
+
+# 进行图片识别 2分
+output = session.run([output_name], {input_name: processed_image})[0]
+
+
+# 应用 softmax 函数获取概率 2分
+probabilities = scipy.special.softmax(output, axis=-1)
+
+
+# 获取最高的5个概率和对应的类别索引 3分
+top5_idx = np.argsort(probabilities[0])[-5:][::-1]
+top5_prob = probabilities[0][top5_idx]
+
+
+# 打印结果
+print(&quot;Top 5 predicted classes:&quot;)
+for i in range(5):
+  print(f&quot;{i+1}: {labels[top5_idx[i]]} - Probability: {top5_prob[i]}&quot;)</code></pre>
+<h4>六、如何检查结果和完成答题卷</h4>
+<p>当前图片实测 Top 1 为 <code>tusker</code>，概率约 93.12%；之后依次为 <code>Indian elephant</code>、<code>African elephant</code>、<code>gorilla</code>、<code>water buffalo</code>。不同运行环境可能有很小的浮点差异，不要把这些结果硬编码进答案。</p>
+<p>概率表示模型对当前图片某类别的置信程度，不代表在整套数据上测得的准确率。</p>
+<p>答题卷要求可行的人机交互方式，可结合本题写出至少三项具体措施：</p>
+<ul>
+<li>提供图片上传、缩略图预览和重新选择，避免识别错文件。</li>
+<li>同时展示 Top 5 名称和概率，由用户确认或纠正，而不只显示单一结论。</li>
+<li>对模糊图片、低置信度结果提示重新拍摄或转人工判断。</li>
+<li>识别过程中显示状态；文件格式或模型加载失败时给出明确原因和重试入口。</li>
+<li>允许用户查看原图并修改结果，确认后再提交。</li>
+</ul>
+<p>提交时核对：附带运行结果的 <code>3.2.1.html</code>、填写后的 <code>3.2.1.docx</code>、仅截取识别输出区域的 <code>3.2.1-1.jpg</code>。截图不是把原始测试图片另存一次。</p>
+<p>常见问题：<code>FileNotFoundError</code> 先查工作目录；类型报错查 float32；维度报错查 NCHW；Top 5 顺序反了查 <code>[::-1]</code>；标签对不上查是否误排了 <code>labels.txt</code>。</p>
+<h4>七、资料来源</h4>
+<p>已对照本单元的 ipynb、题目 HTML、答题卷、模型、标签及测试图片。</p>
+<ul>
+<li>ONNX Runtime Python API：https://onnxruntime.ai/docs/api/python/api_summary.html</li>
+<li>SciPy softmax：https://docs.scipy.org/doc/scipy/reference/generated/scipy.special.softmax.html</li>
+<li>NumPy argsort：https://numpy.org/doc/stable/reference/generated/numpy.argsort.html</li>
+</ul></div>
+
+</body>
+</html>
