@@ -19,6 +19,8 @@ BOOK_WIKI = os.path.join("book-wiki", "ai-trainer-level-3")
 RENDERED_DIR = os.path.join(BOOK_WIKI, "rendered")
 PREVIEW_ROWS = 8
 PREVIEW_COLS = 8
+JUPYTER_PORT = int(os.environ.get("JUPYTER_PORT", "8891"))
+JUPYTER_TOKEN = os.environ.get("JUPYTER_TOKEN", "")
 
 
 def read_title(unit_dir: str, unit: str) -> str:
@@ -72,7 +74,10 @@ def make_preview(path: str) -> str:
 
 
 def jlab_url(rel: str) -> str:
-    return "http://localhost:8888/lab/tree/" + quote(rel, safe="/")
+    url = f"http://localhost:{JUPYTER_PORT}/lab/tree/" + quote(rel, safe="/")
+    if JUPYTER_TOKEN:
+        url += "?token=" + quote(JUPYTER_TOKEN, safe="")
+    return url
 
 
 def md_inline(text: str) -> str:
@@ -427,7 +432,7 @@ th {{ background:var(--chip); position:sticky; top:0; }}
 <body>
 <header>
   <h1>📚 人工智能训练师（三级）练习导航</h1>
-  <p class="tip">每个单元一个卡片，所有链接在新标签页打开。任务要求（HTML）浏览器打开 · 答题卷（docx）Word 打开 · 练习/数据可经「在 Jupyter 打开 / Jupyter 表格」查看（需 Jupyter 运行于本机 8888 端口）· 数据卡片内附前几行预览。导航页由 scripts/generate_nav.py 生成，素材变动后重新运行即可。</p>
+  <p class="tip">每个单元一个卡片，所有链接在新标签页打开。任务要求（HTML）浏览器打开 · 答题卷（docx）Word 打开 · 练习/数据可经「在 Jupyter 打开 / Jupyter 表格」查看（需 Jupyter 运行于本机 {JUPYTER_PORT} 端口）· 数据卡片内附前几行预览。导航页由 scripts/generate_nav.py 生成，素材变动后重新运行即可。</p>
 </header>
 {"".join(sections)}
 <script>
