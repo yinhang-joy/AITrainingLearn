@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>1.1.2 智能农业系统中的业务数据采集和处理流程设计</title>
+<title>1.1.2 智能农业系统业务数据采集和处理流程设计</title>
 <style>
 :root { --bg:#fff; --fg:#1a1a1a; --line:#e5e5e5; --muted:#737373; --accent:#2563eb; --chip:#f5f5f5; }
 @media (prefers-color-scheme:dark) { :root:not([data-theme="light"]) { --bg:#0a0a0a; --fg:#ededed; --line:#262626; --muted:#a3a3a3; --accent:#60a5fa; --chip:#1a1a1a; } }
@@ -36,7 +36,7 @@ details summary { cursor:pointer; color:var(--accent); font-weight:500; user-sel
 </style>
 </head>
 <body>
-<h1>1.1.2 智能农业系统中的业务数据采集和处理流程设计</h1>
+<h1>1.1.2 智能农业系统业务数据采集和处理流程设计</h1>
 <div class="lecture-body"><h3>1.1.2 讲义：智能农业系统中的业务数据采集和处理流程设计</h3>
 <ul>
 <li><strong>日期</strong>: 2026-08-19</li>
@@ -220,6 +220,70 @@ print(&quot;数据清洗完成，已保存为 &#x27;cleaned_sensor_data.csv&#x27
 <p>6. pandas 3.x 不支持旧式 method 参数，启用写时复制时单列原地修改也不会更新原表；兼容写法使用填充结果赋回原列。当前固定的 pandas 2.2.3 默认环境仍可按原模板填写。全空列没有有效值，仍会保留 NaN。</p>
 <p>7. 导出 cleaned_data，避免保留临时标记列；index=False 防止写入额外行号列。</p>
 </details></div>
+<section class="concepts"><h2>知识点卡片</h2><section class="concept-card"><h3>boolean-column-assignment</h3><div class="content"><h3>boolean-column-assignment（布尔列赋值 / 异常值标记）</h3>
+<ul>
+<li><strong>来源章节</strong>: 1.1.2</li>
+<li><strong>定义</strong>: 用布尔表达式创建新列，每行是 True/False，用于标记异常值、分类等</li>
+<li><strong>用法</strong>:</li>
+<pre><code>  # 单条件标记
+  df[&#x27;Anomaly&#x27;] = df[&#x27;Value&#x27;] &gt; 50
 
+  # 多条件标记（温度 &gt; 50 或湿度 &gt; 100）
+  df[&#x27;Anomaly&#x27;] = ((df[&#x27;SensorType&#x27;] == &#x27;Temperature&#x27;) &amp; (df[&#x27;Value&#x27;] &gt; 50)) | \
+                  ((df[&#x27;SensorType&#x27;] == &#x27;Humidity&#x27;) &amp; (df[&#x27;Value&#x27;] &gt; 100))
+
+  # 统计异常数量
+  df[&#x27;Anomaly&#x27;].sum()   # True=1、False=0，求和 = 异常行数</code></pre>
+<li><strong>⚠️ 易错点（考点）</strong>:</li>
+<li>复杂条件<strong>必须加括号</strong>，因为 <code>&amp;</code> / <code>|</code> 优先级高于 <code>==</code> / <code>&gt;</code></li>
+<li>❌ <code>df['A'] &gt; 10 &amp; df['B'] &lt; 5</code> 逻辑错误</li>
+<li>✅ <code>(df['A'] &gt; 10) &amp; (df['B'] &lt; 5)</code> 正确</li>
+<li><strong>关联</strong>: <span class="wikilink">boolean-indexing</span> · <span class="wikilink">boolean-mean-ratio</span></li>
+</ul></div></section><section class="concept-card"><h3>drop-columns</h3><div class="content"><h3>drop-columns（删除指定列）</h3>
+<ul>
+<li><strong>来源章节</strong>: 1.1.2</li>
+<li><strong>定义</strong>: 删除 DataFrame 中的指定列（无论有无缺失值）</li>
+<li><strong>用法</strong>:</li>
+<pre><code>  df.drop(columns=[&#x27;col1&#x27;, &#x27;col2&#x27;])     # 删除指定列
+  df.drop([&#x27;col1&#x27;, &#x27;col2&#x27;], axis=1)     # 旧写法（axis=1 表示列）
+  df.drop(index=[0, 1, 2])              # 删除指定行</code></pre>
+<li><strong>与 <code>.dropna()</code> 的区别</strong>:</li>
+<li><code>.drop(columns=[...])</code> 删除 <strong>你指定的</strong> 列（主动删除）</li>
+<li><code>.dropna()</code> 删除 <strong>含缺失值（NaN）</strong> 的行/列（自动找 NaN）</li>
+<li><code>.dropna()</code> <strong>没有</strong> <code>columns</code> 参数！</li>
+<li><strong>⚠️ 易错点</strong>:</li>
+<li>❌ <code>df.dropna(columns=['col'])</code> 语法错误（dropna 没有 columns 参数）</li>
+<li>✅ <code>df.drop(columns=['col'])</code> 删除指定列</li>
+<li>✅ <code>df.dropna(subset=['col'])</code> 删除该列为 NaN 的行</li>
+<li><strong>关联</strong>: <span class="wikilink">fillna-method</span> · <span class="wikilink">to-csv</span></li>
+</ul></div></section><section class="concept-card"><h3>fillna-method</h3><div class="content"><h3>fillna-method（缺失值填充）</h3>
+<ul>
+<li><strong>来源章节</strong>: 1.1.2</li>
+<li><strong>定义</strong>: 用前面或后面的值填充 NaN（缺失值），而非固定值</li>
+<li><strong>用法</strong>:</li>
+<pre><code>  df[&#x27;Value&#x27;].fillna(method=&#x27;ffill&#x27;)   # 前向填充（用前面的值）
+  df[&#x27;Value&#x27;].fillna(method=&#x27;bfill&#x27;)   # 后向填充（用后面的值）
+  # 链式调用（考试常用）：
+  df[&#x27;Value&#x27;].fillna(method=&#x27;ffill&#x27;).fillna(method=&#x27;bfill&#x27;)</code></pre>
+<li><strong>参数</strong>: <code>method='ffill'</code>（前向，别名 <code>'pad'</code>）/ <code>method='bfill'</code>（后向，别名 <code>'backfill'</code>）</li>
+<li><strong>⚠️ 易错点</strong>:</li>
+<li><code>ffill</code> 无法填充第一行的 NaN（前面没有值）</li>
+<li><code>bfill</code> 无法填充最后一行的 NaN（后面没有值）</li>
+<li>链式调用可以覆盖首尾：先 ffill 填中间，再 bfill 补首尾</li>
+<li><strong>关联</strong>: <span class="wikilink">isin-filter</span> · <span class="wikilink">to-csv</span></li>
+</ul></div></section><section class="concept-card"><h3>isin-filter</h3><div class="content"><h3>isin-filter（多值筛选）</h3>
+<ul>
+<li><strong>来源章节</strong>: 1.1.2</li>
+<li><strong>定义</strong>: 筛选某列的值在指定列表里的行 —— 比多个 <code>==</code> 或条件简洁</li>
+<li><strong>用法</strong>:</li>
+<pre><code>  df[df[&#x27;SensorType&#x27;].isin([&#x27;Temperature&#x27;, &#x27;Humidity&#x27;])]
+  # 等价于（但更简洁）：
+  df[(df[&#x27;SensorType&#x27;] == &#x27;Temperature&#x27;) | (df[&#x27;SensorType&#x27;] == &#x27;Humidity&#x27;)]</code></pre>
+<li><strong>参数</strong>: <code>.isin([列表])</code> —— 必须是列表，不能直接传多个参数</li>
+<li><strong>⚠️ 易错点</strong>:</li>
+<li>❌ <code>.isin('A', 'B')</code> 语法错误（isin 只接受一个参数）</li>
+<li>✅ <code>.isin(['A', 'B'])</code> 必须用列表包裹</li>
+<li><strong>关联</strong>: <span class="wikilink">boolean-indexing</span> · <span class="wikilink">groupby-aggregation</span></li>
+</ul></div></section></section>
 </body>
 </html>
