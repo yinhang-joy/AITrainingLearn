@@ -21,8 +21,11 @@
 
 3. 启动 Jupyter：
 
-   - Windows：`.venv\Scripts\jupyter-lab.exe`
+   - Windows：双击根目录的 `一键启动服务.bat`，自动启动 Jupyter（8891）和重置服务（8765），并打开认证入口及练习导航。重复运行会复用已有服务，关闭启动窗口不影响后台服务。
+   - 只启动服务、不打开浏览器：运行 `一键启动服务.bat --no-browser`。
    - macOS/Linux：`.venv/bin/jupyter-lab`
+
+   Windows 启动脚本只重建导航，不覆盖讲义、练习或数据；导航不保存 token。日志和重建前的导航备份保存在 `%LOCALAPPDATA%\AITraining\` 下。若端口被其他程序占用，会提示错误，不会强行关闭进程；启动失败时窗口会保留错误信息。
 
 ## 说明
 

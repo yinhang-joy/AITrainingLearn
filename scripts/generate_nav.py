@@ -237,9 +237,10 @@ details summary {{ cursor:pointer; color:var(--accent); font-weight:500; user-se
 </html>"""
 
 
-def load_learning_materials() -> dict:
+def load_learning_materials(render_lectures: bool = True) -> dict:
     """扫描 book-wiki 学习材料，返回 {unit: {lecture, concepts, rendered_path}}"""
-    os.makedirs(os.path.join(ROOT, RENDERED_DIR), exist_ok=True)
+    if render_lectures:
+        os.makedirs(os.path.join(ROOT, RENDERED_DIR), exist_ok=True)
     out = {}
     lect_dir = os.path.join(ROOT, BOOK_WIKI, "lectures")
     if os.path.isdir(lect_dir):
@@ -276,9 +277,10 @@ def load_learning_materials() -> dict:
         if "lecture" in data:
             _, ltitle, lbody = data["lecture"]
             concepts = data.get("concepts", [])
-            html_content = render_standalone_lecture(unit, ltitle, lbody, concepts)
             rendered_path = os.path.join(RENDERED_DIR, f"{unit}.html")
-            open(os.path.join(ROOT, rendered_path), "w", encoding="utf-8").write(html_content)
+            if render_lectures:
+                html_content = render_standalone_lecture(unit, ltitle, lbody, concepts)
+                open(os.path.join(ROOT, rendered_path), "w", encoding="utf-8").write(html_content)
             data["rendered_path"] = rendered_path.replace("\\", "/")
     return out
 
@@ -327,8 +329,8 @@ def build_card(unit: str, title: str, files, learning=None) -> str:
     </section>"""
 
 
-def main() -> None:
-    learning = load_learning_materials()
+def main(render_lectures: bool = True) -> None:
+    learning = load_learning_materials(render_lectures=render_lectures)
     units = []
     for d in sorted(
         glob.glob(os.path.join(MAT, "*")),
@@ -461,4 +463,9 @@ function resetNotebook(unit) {{
 
 
 if __name__ == "__main__":
-    main()
+    import argparse
+
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--navigation-only", action="store_true", help="只更新导航，不覆盖讲义 HTML")
+    args = parser.parse_args()
+    main(render_lectures=not args.navigation_only)
