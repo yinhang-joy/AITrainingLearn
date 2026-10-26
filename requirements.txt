@@ -4,6 +4,7 @@ pandas==2.2.3
 numpy
 scipy
 pillow
+opencv-python
 matplotlib
 seaborn
 onnxruntime

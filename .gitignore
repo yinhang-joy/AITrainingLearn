@@ -12,6 +12,13 @@ __pycache__/
 *.pyc
 .ipynb_checkpoints/
 
+# 本地考试作答、历史试卷（入口页面仍纳入版本管理）
+/考试目录/试卷/
+/考试目录/current.json
+
+# 本地人脸检测运行结果
+/人工智能训练师三级上网素材/3.2.5/detect_imgs_results_onnx/
+
 # Windows
 Thumbs.db
 Desktop.ini

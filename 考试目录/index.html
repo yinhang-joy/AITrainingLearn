@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>模拟考试 · 人工智能训练师三级</title>
+  <link rel="stylesheet" href="style.css">
+  <script defer src="app.js"></script>
+</head>
+<body>
+  <main>
+    <nav class="topline"><a id="practice-link" href="../练习导航.html">← 练习导航</a><span>人工智能训练师 · 三级</span></nav>
+    <header>
+      <div class="eyebrow">操作技能模拟考试</div>
+      <h1>一套试题，完整练习。</h1>
+      <p class="intro">按考核规则组成六道题，在独立的考试目录中完成作答。</p>
+      <div class="summary" aria-label="考试安排">
+        <div><strong id="total-count">6</strong><span>道试题</span></div>
+        <div><strong id="total-minutes">120</strong><span>分钟</span></div>
+        <div><strong id="total-points">100</strong><span>分</span></div>
+      </div>
+    </header>
+    <section class="toolbar" aria-label="试卷操作">
+      <div class="paper-meta"><h2 id="paper-heading">正在读取试卷…</h2><p id="paper-date"></p></div>
+      <div class="actions"><button id="reset-all" type="button" disabled>重置本套试题</button><button id="draw" class="primary" type="button" disabled>重新抽取 6 道题</button></div>
+    </section>
+    <div class="subbar">
+      <p>重新抽题会保留上一套作答；重置会生成新的空白副本，并保留旧作答。</p>
+      <label for="history">历史试卷 <select id="history" disabled aria-label="选择历史试卷"><option>正在读取…</option></select></label>
+    </div>
+    <div id="status" class="status" role="status" aria-live="polite">正在载入题目…</div>
+    <button id="retry" type="button" hidden>重新连接</button>
+    <section id="questions" class="grid" aria-label="本套六道试题"></section>
+    <section class="bottom-row">
+      <details class="rules"><summary>抽题规则</summary><ul>
+        <li>业务分析：业务流程设计（1.1）与业务模块效果优化（1.2）选一类，再从该类 5 题中抽 1 题。30 分钟，25 分。</li>
+        <li>数据处理规范制定（2.1）、算法测试（2.2）、智能系统监控和优化（3.1）、人机交互流程设计（3.2）：四类各抽 1 题，每题 20 分钟，分值依次为 15、20、15、20 分。</li>
+        <li>培训与指导：培训（4.1）与指导（4.2）选一类，再从该类 5 题中抽 1 题。10 分钟，5 分。</li>
+      </ul></details>
+      <a id="paper-folder" target="_blank" rel="noopener" hidden>打开本套文件目录 ↗</a>
+    </section>
+    <details id="backups" class="backups" hidden><summary>查看重置前的作答</summary><div id="backup-list"></div></details>
+    <footer>答题卷下载后，请将填写好的文件另存到本题作答目录。考试文件与日常练习分别保存。</footer>
+  </main>
+  <dialog id="reset-dialog" aria-labelledby="reset-title">
+    <h2 id="reset-title">重置本套试题？</h2>
+    <p>将恢复原始填空、空白答题卷和原始数据，清空新副本中的运行输出。旧作答会保留，可在页面下方查看。</p>
+    <p>完成后，请从本页面重新打开题目。</p>
+    <div class="dialog-actions"><button id="cancel-reset" type="button">取消</button><button id="confirm-reset" class="primary" type="button">确认重置</button></div>
+  </dialog>
+</body>
+</html>
