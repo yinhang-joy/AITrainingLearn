@@ -75,10 +75,21 @@ class StartupTests(unittest.TestCase):
             spawn.assert_not_called()
 
     def test_reset_health_check_never_resets_an_exercise(self):
-        headers = {"Access-Control-Allow-Methods": "POST, OPTIONS", "Access-Control-Allow-Origin": "*"}
-        with patch.object(launcher, "request", return_value=(200, headers, b"")) as request:
+        body = b'{"service":"practice-and-exams","version":1}'
+        with patch.object(launcher, "request", return_value=(200, {}, body)) as request:
             self.assertTrue(launcher.reset_ready())
-            self.assertEqual(request.call_args.kwargs["method"], "OPTIONS")
+            request.assert_called_once_with(f"http://localhost:{launcher.RESET_PORT}/api/health")
+
+    def test_reset_health_check_rejects_unrelated_services(self):
+        for response in [
+            (200, {}, b'{"service":"another-app","version":1}'),
+            (200, {}, b'{"service":"practice-and-exams","version":2}'),
+            (503, {}, b'{"service":"practice-and-exams","version":1}'),
+            (200, {}, b'[]'),
+            (200, {}, b'<html>another service</html>'),
+        ]:
+            with self.subTest(response=response), patch.object(launcher, "request", return_value=response):
+                self.assertFalse(launcher.reset_ready())
 
     def test_navigation_does_not_receive_token(self):
         with tempfile.TemporaryDirectory() as directory:

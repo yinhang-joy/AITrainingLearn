@@ -29,9 +29,10 @@
 
 ## 模拟考试
 
-运行 `.venv\Scripts\python.exe -X utf8 scripts\reset_service.py`，打开
+Windows 双击 `一键启动服务.bat` 后，打开
 [考试目录](http://localhost:8765/考试目录/)。练习导航顶部也有考试入口。
-在 Jupyter 中作答时仍需启动本项目的 JupyterLab（8891 端口，根目录为仓库根）。
+一键启动会同时准备考试服务（8765）和本项目的 JupyterLab（8891，根目录为仓库根）。
+也可单独运行 `.venv\Scripts\python.exe -X utf8 scripts\reset_service.py`；此时需另行启动上述 JupyterLab。
 
 - 每套 6 道、120 分钟、100 分：1.1/1.2 选一类，4.1/4.2 选一类，2.1、2.2、3.1、3.2 必考；每类从 5 题中随机选 1 题。
 - 首套沿用已抽取的 1.1.1、2.1.5、2.2.5、3.1.1、3.2.5、4.1.2。重新抽取会保留历史试卷，可用下拉框切换。

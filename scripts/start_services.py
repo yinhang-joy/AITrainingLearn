@@ -49,28 +49,32 @@ def jupyter_ready(token):
 
 def reset_ready():
     try:
-        status, headers, _ = request(f"http://localhost:{RESET_PORT}/reset", method="OPTIONS")
+        status, _, body = request(f"http://localhost:{RESET_PORT}/api/health")
+        health = json.loads(body)
         return (
             status == 200
-            and "POST" in headers.get("Access-Control-Allow-Methods", "")
-            and headers.get("Access-Control-Allow-Origin") == "*"
+            and isinstance(health, dict)
+            and health.get("service") == "practice-and-exams"
+            and health.get("version") == 1
         )
-    except OSError:
+    except (OSError, ValueError):
         return False
 
 
 def running_jupyter():
     from jupyter_server.serverapp import list_running_servers
 
-    for server in list_running_servers():
-        root_dir = server.get("root_dir") or server.get("notebook_dir")
-        if (
-            server.get("port") == JUPYTER_PORT
-            and root_dir
-            and Path(root_dir).resolve() == ROOT
-            and server.get("base_url", "/") == "/"
-        ):
-            return server
+    # 默认目录用于一键启动，同时兼容此前考试服务使用的独立目录。
+    for runtime_dir in (None, str(ROOT / ".venv" / "service-runtime")):
+        for server in list_running_servers(runtime_dir=runtime_dir):
+            root_dir = server.get("root_dir") or server.get("notebook_dir")
+            if (
+                server.get("port") == JUPYTER_PORT
+                and root_dir
+                and Path(root_dir).resolve() == ROOT
+                and server.get("base_url", "/") == "/"
+            ):
+                return server
     return None
 
 

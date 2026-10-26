@@ -7,9 +7,9 @@ from pathlib import Path
 import re
 import sys
 from urllib.parse import parse_qs, quote, urlsplit
-from urllib.request import Request, urlopen
 
 from exam_manager import ConflictError, ExamStore, MATERIALS
+import start_services
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -20,20 +20,11 @@ def jupyter_location(relative):
         raise ValueError("只能打开题库或考试作答目录")
     if not path.exists():
         raise FileNotFoundError("作答文件不存在")
-    runtime = ROOT / ".venv" / "service-runtime"
-    for info_file in sorted(runtime.glob("jpserver-*.json"), key=lambda p: p.stat().st_mtime, reverse=True):
-        try:
-            info = json.loads(info_file.read_text(encoding="utf-8"))
-            if info.get("port") != 8891 or Path(info.get("root_dir", "")).resolve() != ROOT:
-                continue
-            token = info.get("token", "")
-            req = Request("http://127.0.0.1:8891/api/status", headers={"Authorization": "token " + token})
-            with urlopen(req, timeout=2) as response:
-                if response.status != 200:
-                    continue
-            return "http://localhost:8891/lab/tree/" + quote(path.relative_to(ROOT).as_posix(), safe="/") + "?token=" + quote(token, safe="")
-        except (OSError, ValueError):
-            continue
+    info = start_services.running_jupyter()
+    if info:
+        token = info.get("token", "")
+        if start_services.jupyter_ready(token):
+            return start_services.JUPYTER_URL + "/lab/tree/" + quote(path.relative_to(ROOT).as_posix(), safe="/") + "?token=" + quote(token, safe="")
     raise RuntimeError("Jupyter 尚未启动，请先启动本项目的 Jupyter 服务（8891 端口）")
 
 
