@@ -4,6 +4,7 @@
 
 ## 当前错题与强化练习
 
+- [主观题答案汇总](ai-trainer-level-3/subjective-answers/index.html)：按题号搜索1.2、2.1、3.1、3.2、4.1共25个单元，含评分要点、记忆关键词和Word版。
 - [标准答案依据](ai-trainer-level-3/answer-reference.md)：用户于2026-10-27指定的PDF、页码索引与判题规则，优先于旧讲义和助手建议。
 - [错题记录](ai-trainer-level-3/learning-records/错题记录.md)：当前待订正问题、已订正状态和下次检查要点。
 - [强化练习计划](ai-trainer-level-3/reinforcement-plan.md)：开始练习时先看对应单元的提醒。
