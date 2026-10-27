@@ -2,6 +2,13 @@
 
 这是你的**做题工具库**，不是课本，不是笔记本。
 
+## 当前错题与强化练习
+
+- [标准答案依据](ai-trainer-level-3/answer-reference.md)：用户于2026-10-27指定的PDF、页码索引与判题规则，优先于旧讲义和助手建议。
+- [错题记录](ai-trainer-level-3/learning-records/错题记录.md)：当前待订正问题、已订正状态和下次检查要点。
+- [强化练习计划](ai-trainer-level-3/reinforcement-plan.md)：开始练习时先看对应单元的提醒。
+- [2026-10-26 全部代码练习复核](ai-trainer-level-3/learning-records/2026-10-26-code-exercise-review.md)：20 道代码题的实际运行证据与结论。
+
 ## 📚 目录结构
 
 ```
